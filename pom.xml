@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.walkmod</groupId>
 	<artifactId>javalang-refactor</artifactId>
-	<version>1.0-SNAPSHOT</version>
+	<version>1.0</version>
 	<url>https://github.com/rpau/javalang-refactor</url>
 	<licenses>
 		<license>
@@ -57,7 +57,7 @@
 		<dependency>
 			<groupId>org.walkmod</groupId>
 			<artifactId>javalang-compiler</artifactId>
-			<version>1.0-SNAPSHOT</version>
+			<version>1.0</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
