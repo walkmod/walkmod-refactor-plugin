@@ -15,6 +15,7 @@
  along with Walkmod.  If not, see <http://www.gnu.org/licenses/>.*/
 package org.walkmod.javalangrefactor.visitors;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
@@ -24,6 +25,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Scanner;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.log4j.Logger;
@@ -71,16 +74,21 @@ import org.walkmod.javalang.compiler.Symbol;
 import org.walkmod.javalang.compiler.SymbolTable;
 import org.walkmod.javalang.compiler.TypeTable;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
-import org.walkmod.javalangrefactor.dtos.ConstantTransformationDictionary;
-import org.walkmod.javalangrefactor.dtos.MethodHeaderDeclaration;
-import org.walkmod.javalangrefactor.dtos.MethodHeaderDeclarationDictionary;
-import org.walkmod.javalangrefactor.dtos.MethodRefactoringRule;
-import org.walkmod.javalangrefactor.dtos.RefactoringRulesDictionary;
+import org.walkmod.javalangrefactor.config.ConstantTransformationDictionary;
+import org.walkmod.javalangrefactor.config.MethodHeaderDeclaration;
+import org.walkmod.javalangrefactor.config.MethodHeaderDeclarationDictionary;
+import org.walkmod.javalangrefactor.config.MethodRefactoringRule;
+import org.walkmod.javalangrefactor.config.RefactoringRulesDictionary;
 import org.walkmod.walkers.VisitorContext;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 
 public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	private RefactoringRulesDictionary refactoringRules;
+	
+	private Map<String, String> inputRules;
 
 	private MethodHeaderDeclarationDictionary removedMethods = new MethodHeaderDeclarationDictionary();
 
@@ -112,9 +120,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 	private int innerAnonymousClassCounter = 1;
 
 	private VariableTypeRefactor variableTypeRefactor;
-	
+
 	private static Logger log = Logger.getLogger(MethodRefactor.class);
-	
 
 	public MethodRefactor() {
 		this(null);
@@ -1097,8 +1104,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					if (arg.get(UPDATED_STATEMENT_KEY) != null) {
 						stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
 					} else {
-						log.debug("The method " + s.toString()
-								+ " is removed");
+						log.debug("The method " + s.toString() + " is removed");
 						arg.remove(UPDATED_STATEMENT_KEY);
 					}
 				}
@@ -1125,9 +1131,47 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		}
 	}
 
+	public void setRefactoringConfigFile(String refactoringConfigFile) throws Exception {
+		File file = new File(refactoringConfigFile);
+		
+		if (file.exists()) {
+
+			if(file.canRead()){
+				
+				String text = new Scanner(file).useDelimiter("\\A").next();				
+				
+				JSONObject o = JSON.parseObject(text);
+				
+				Map<String, String> aux = new HashMap<String, String>(); 
+				
+				Set<Map.Entry<String, Object>> entries = o.entrySet();
+				
+				Iterator<Map.Entry<String, Object>> it = entries.iterator();
+				
+				while(it.hasNext()){
+					Map.Entry<String,Object> entry = it.next();
+					aux.put(entry.getKey(), entry.getValue().toString());
+					it.remove();
+				}
+				setRefactoringRules(aux);
+			}
+			else{
+				log.error("The refactoring config file ["+refactoringConfigFile+"] cannot be read");
+			}
+		}
+		else{
+			log.error("The refactoring config file ["+refactoringConfigFile+"] does not exist");
+		}
+	}
+
 	public void setRefactoringRules(Map<String, String> inputRules)
 			throws InvalidTransformationRuleException {
+		this.inputRules = inputRules;
 		this.refactoringRules.putRules(inputRules);
+	}
+	
+	public Map<String, String> getRefactoringRules(){
+		return inputRules;
 	}
 
 	public void setRemovedMethods(Collection<String> deletedMethods)
@@ -1327,8 +1371,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					if (arg.get(UPDATED_STATEMENT_KEY) != null) {
 						stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
 					} else {
-						log.debug("The method " + s.toString()
-								+ " is removed");
+						log.debug("The method " + s.toString() + " is removed");
 						arg.remove(UPDATED_STATEMENT_KEY);
 					}
 				}

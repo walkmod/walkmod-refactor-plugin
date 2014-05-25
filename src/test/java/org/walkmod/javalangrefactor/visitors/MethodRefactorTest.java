@@ -129,6 +129,15 @@ public class MethodRefactorTest {
 		Assert.assertEquals("bar.concat(\"a\").concat(\"a\");", stmt);
 	}
 	
+	@Test
+	public void testParsingConfigFile() throws Exception{
+		
+		MethodRefactor coi = new MethodRefactor();
+		coi.setRefactoringConfigFile("src/test/resources/refactoring-methods-config.json");
+		
+		Assert.assertEquals(2, coi.getRefactoringRules().size()); 
+	}
+	
 
 	
 }

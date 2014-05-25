@@ -1,0 +1,4 @@
+{
+ "java.io.PrintStream:print(java.lang.String text)" : "java.io.PrintStream:println(text)",
+ "java.lang.String:substring(int pos)" : "java.lang.String:concat(\"a\")"
+}
