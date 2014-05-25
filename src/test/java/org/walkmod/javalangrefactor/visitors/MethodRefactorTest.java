@@ -68,10 +68,12 @@ public class MethodRefactorTest {
 			ClassLoader cl = new URLClassLoader(
 					new URL[] { aux.toURI().toURL() });
 
-			MethodRefactor coi = new MethodRefactor(cl);
+			MethodRefactor coi = new MethodRefactor();
+
+			coi.setClassLoader(cl);
 
 			coi.setRefactoringRules(methodRules);
-			
+
 			cu.accept(coi, new VisitorContext());
 			tmpClass.delete();
 			return cu;
@@ -96,9 +98,9 @@ public class MethodRefactorTest {
 		Assert.assertEquals("System.out.println(\"hello\");", stmt);
 
 	}
-	
+
 	@Test
-	public void testMultipleMethodCall() throws Exception{
+	public void testMultipleMethodCall() throws Exception {
 		String code = "public class Foo { public void hi() { \"hello\".substring(0).substring(3);}}";
 
 		Map<String, String> rules = new HashMap<String, String>();
@@ -106,15 +108,15 @@ public class MethodRefactorTest {
 				"java.lang.String:concat(\"a\")");
 
 		CompilationUnit cu = getRefactoredSource(code, rules);
-		
+
 		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
 				.getMembers().get(0);
 		String stmt = md.getBody().getStmts().get(0).toString();
 		Assert.assertEquals("\"hello\".concat(\"a\").concat(\"a\");", stmt);
 	}
-	
+
 	@Test
-	public void testSymbols() throws Exception{
+	public void testSymbols() throws Exception {
 		String code = "public class Foo { public void hi(String bar) { bar.substring(0).substring(3);}}";
 
 		Map<String, String> rules = new HashMap<String, String>();
@@ -122,22 +124,20 @@ public class MethodRefactorTest {
 				"java.lang.String:concat(\"a\")");
 
 		CompilationUnit cu = getRefactoredSource(code, rules);
-		
+
 		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
 				.getMembers().get(0);
 		String stmt = md.getBody().getStmts().get(0).toString();
 		Assert.assertEquals("bar.concat(\"a\").concat(\"a\");", stmt);
 	}
-	
+
 	@Test
-	public void testParsingConfigFile() throws Exception{
-		
+	public void testParsingConfigFile() throws Exception {
+
 		MethodRefactor coi = new MethodRefactor();
 		coi.setRefactoringConfigFile("src/test/resources/refactoring-methods-config.json");
-		
-		Assert.assertEquals(2, coi.getRefactoringRules().size()); 
-	}
-	
 
-	
+		Assert.assertEquals(2, coi.getRefactoringRules().size());
+	}
+
 }

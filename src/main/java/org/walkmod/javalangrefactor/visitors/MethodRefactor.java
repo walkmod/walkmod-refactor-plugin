@@ -87,7 +87,7 @@ import com.alibaba.fastjson.JSONObject;
 public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	private RefactoringRulesDictionary refactoringRules;
-	
+
 	private Map<String, String> inputRules;
 
 	private MethodHeaderDeclarationDictionary removedMethods = new MethodHeaderDeclarationDictionary();
@@ -123,27 +123,35 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	private static Logger log = Logger.getLogger(MethodRefactor.class);
 
+	private ClassLoader classLoader = null;
+
+	private boolean setUp = false;
+
 	public MethodRefactor() {
-		this(null);
 	}
 
-	public MethodRefactor(ClassLoader cl) {
-		symbolTable = new SymbolTable();
-		typeTable = new TypeTable(cl);
-		this.refactoringRules = new RefactoringRulesDictionary(typeTable);
-		createdMethods.setTypeTable(typeTable);
-		removedMethods.setTypeTable(typeTable);
-		exprRefactor = new ExpressionRefactor(symbolTable);
-		constantDictionary = new ConstantTransformationDictionary();
-		expressionTypeAnalyzer = new ExpressionTypeAnalyzer(typeTable,
-				symbolTable);
-		exprRefactor.setTypeTable(typeTable);
-		exprRefactor.setExpressionTypeAnalyzer(expressionTypeAnalyzer);
-		variableTypeRefactor = new VariableTypeRefactor();
+	public void setClassLoader(ClassLoader classLoader) {
+		this.classLoader = classLoader;
 	}
 
 	@Override
 	public void visit(CompilationUnit unit, VisitorContext arg) {
+		if (!setUp) {
+			symbolTable = new SymbolTable();
+			typeTable = new TypeTable(classLoader);
+			this.refactoringRules = new RefactoringRulesDictionary(typeTable);
+			createdMethods.setTypeTable(typeTable);
+			removedMethods.setTypeTable(typeTable);
+			exprRefactor = new ExpressionRefactor(symbolTable);
+			constantDictionary = new ConstantTransformationDictionary();
+			expressionTypeAnalyzer = new ExpressionTypeAnalyzer(typeTable,
+					symbolTable);
+			exprRefactor.setTypeTable(typeTable);
+			exprRefactor.setExpressionTypeAnalyzer(expressionTypeAnalyzer);
+			variableTypeRefactor = new VariableTypeRefactor();
+			refactoringRules.putRules(inputRules);
+			setUp = true;
+		}
 
 		innerAnonymousClassCounter = 1;
 
@@ -1131,46 +1139,47 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		}
 	}
 
-	public void setRefactoringConfigFile(String refactoringConfigFile) throws Exception {
+	public void setRefactoringConfigFile(String refactoringConfigFile)
+			throws Exception {
 		File file = new File(refactoringConfigFile);
-		
+
 		if (file.exists()) {
 
-			if(file.canRead()){
-				
-				String text = new Scanner(file).useDelimiter("\\A").next();				
-				
+			if (file.canRead()) {
+
+				String text = new Scanner(file).useDelimiter("\\A").next();
+
 				JSONObject o = JSON.parseObject(text);
-				
-				Map<String, String> aux = new HashMap<String, String>(); 
-				
+
+				Map<String, String> aux = new HashMap<String, String>();
+
 				Set<Map.Entry<String, Object>> entries = o.entrySet();
-				
+
 				Iterator<Map.Entry<String, Object>> it = entries.iterator();
-				
-				while(it.hasNext()){
-					Map.Entry<String,Object> entry = it.next();
+
+				while (it.hasNext()) {
+					Map.Entry<String, Object> entry = it.next();
 					aux.put(entry.getKey(), entry.getValue().toString());
 					it.remove();
 				}
 				setRefactoringRules(aux);
+			} else {
+				log.error("The refactoring config file ["
+						+ refactoringConfigFile + "] cannot be read");
 			}
-			else{
-				log.error("The refactoring config file ["+refactoringConfigFile+"] cannot be read");
-			}
-		}
-		else{
-			log.error("The refactoring config file ["+refactoringConfigFile+"] does not exist");
+		} else {
+			log.error("The refactoring config file [" + refactoringConfigFile
+					+ "] does not exist");
 		}
 	}
 
 	public void setRefactoringRules(Map<String, String> inputRules)
 			throws InvalidTransformationRuleException {
 		this.inputRules = inputRules;
-		this.refactoringRules.putRules(inputRules);
+		
 	}
-	
-	public Map<String, String> getRefactoringRules(){
+
+	public Map<String, String> getRefactoringRules() {
 		return inputRules;
 	}
 
@@ -1201,6 +1210,40 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 			String finalName = scopeStr + "#" + modifiers + " "
 					+ createdMethod.substring(indexScope + 1);
 			this.createdMethods.add(finalName);
+		}
+	}
+	
+	public void setConstantsConfigFile(String constantsConfigFile)
+			throws Exception {
+		File file = new File(constantsConfigFile);
+
+		if (file.exists()) {
+
+			if (file.canRead()) {
+
+				String text = new Scanner(file).useDelimiter("\\A").next();
+
+				JSONObject o = JSON.parseObject(text);
+
+				Map<String, String> aux = new HashMap<String, String>();
+
+				Set<Map.Entry<String, Object>> entries = o.entrySet();
+
+				Iterator<Map.Entry<String, Object>> it = entries.iterator();
+
+				while (it.hasNext()) {
+					Map.Entry<String, Object> entry = it.next();
+					aux.put(entry.getKey(), entry.getValue().toString());
+					it.remove();
+				}
+				setConstantTransformations(aux);
+			} else {
+				log.error("The constants config file ["
+						+ constantsConfigFile + "] cannot be read");
+			}
+		} else {
+			log.error("The constants config file [" + constantsConfigFile
+					+ "] does not exist");
 		}
 	}
 

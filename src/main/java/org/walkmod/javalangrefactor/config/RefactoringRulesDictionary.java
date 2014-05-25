@@ -24,9 +24,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
-import org.walkmod.exceptions.InvalidTransformationRuleException;
 import org.walkmod.exceptions.WalkModException;
 import org.walkmod.javalang.compiler.TypeTable;
+import org.walkmod.javalangrefactor.exceptions.InvalidRefactoringRuleException;
 
 
 public class RefactoringRulesDictionary {
@@ -102,7 +102,7 @@ public class RefactoringRulesDictionary {
 	}
 
 	public void putRules(Map<String, String> refactoringRules)
-			throws InvalidTransformationRuleException {
+			throws InvalidRefactoringRuleException {
 
 		String key, value;
 		MethodRefactoringRule rule;
@@ -121,7 +121,7 @@ public class RefactoringRulesDictionary {
 			// source scope
 			int parentScopeIndex = key.indexOf(':');
 			if (parentScopeIndex == -1) {
-				throw new InvalidTransformationRuleException(
+				throw new InvalidRefactoringRuleException(
 						"Invalid rule format. "
 								+ "The scope cannot be parsed for the rule:<"
 								+ key + " => " + value
@@ -133,7 +133,7 @@ public class RefactoringRulesDictionary {
 
 			int scopeIndex = value.indexOf(':');
 			if (scopeIndex == -1) {
-				throw new InvalidTransformationRuleException(
+				throw new InvalidRefactoringRuleException(
 						"Invalid rule format. "
 								+ "The scope cannot be parsed for the rule:<"
 								+ key + " => " + value
@@ -157,7 +157,7 @@ public class RefactoringRulesDictionary {
 			int methodIndex = key.indexOf('(', parentScopeIndex);
 			if (methodIndex == -1) {
 
-				throw new InvalidTransformationRuleException(
+				throw new InvalidRefactoringRuleException(
 						"Invalid rule format. "
 								+ "The method cannot be parsed for the rule: <"
 								+ key + " => " + value
@@ -170,7 +170,7 @@ public class RefactoringRulesDictionary {
 			int parentIndex = value.indexOf('(', scopeIndex);
 			if (parentIndex == -1) {
 
-				throw new InvalidTransformationRuleException(
+				throw new InvalidRefactoringRuleException(
 						"Invalid rule format. "
 								+ "The method cannot be parsed for the rule: <"
 								+ key + " => " + value
@@ -198,7 +198,7 @@ public class RefactoringRulesDictionary {
 			scopeIndex = key.indexOf(':');
 
 			if (scopeIndex == -1) {
-				throw new InvalidTransformationRuleException(
+				throw new InvalidRefactoringRuleException(
 						"Invalid rule format. "
 								+ "The scope cannot be parsed for the rule:<"
 								+ key + " => " + value
@@ -209,7 +209,7 @@ public class RefactoringRulesDictionary {
 			int startIndex = key.indexOf('(', scopeIndex);
 
 			if (startIndex == -1) {
-				throw new InvalidTransformationRuleException(
+				throw new InvalidRefactoringRuleException(
 						"Invalid rule format. "
 								+ "The args cannot be parsed for the rule:<"
 								+ key + " => " + value
@@ -225,7 +225,7 @@ public class RefactoringRulesDictionary {
 				for (int i = 0; i < variables.length; i++) {
 					int varIndex = argExpr[i].lastIndexOf(" ");
 					if (varIndex == -1) {
-						throw new InvalidTransformationRuleException(
+						throw new InvalidRefactoringRuleException(
 								"Invalid rule format. "
 										+ "The variables cannot be parsed for the rule:<"
 										+ key + " => " + value
