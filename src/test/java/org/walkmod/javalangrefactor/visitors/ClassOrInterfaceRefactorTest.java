@@ -76,4 +76,10 @@ public class ClassOrInterfaceRefactorTest {
 		Assert.assertEquals("C", fd.getType().toString());
 
 	}
+	
+	@Test
+	public void testRefactoringConfiguration() throws Exception{
+		ClassOrInterfaceRefactor coi = new ClassOrInterfaceRefactor();
+		coi.setRefactoringConfigFile("src/test/resources/refactoring-class-config.json");
+	}
 }

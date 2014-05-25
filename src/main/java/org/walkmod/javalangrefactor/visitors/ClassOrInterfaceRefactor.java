@@ -15,10 +15,13 @@
  along with Walkmod.  If not, see <http://www.gnu.org/licenses/>.*/
 package org.walkmod.javalangrefactor.visitors;
 
+import java.io.File;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
@@ -34,6 +37,9 @@ import org.walkmod.javalang.ast.expr.NameExpr;
 import org.walkmod.javalang.ast.type.ClassOrInterfaceType;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
 import org.walkmod.walkers.VisitorContext;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 
 public class ClassOrInterfaceRefactor extends
 		VoidVisitorAdapter<VisitorContext> {
@@ -222,6 +228,40 @@ public class ClassOrInterfaceRefactor extends
 				}
 			}
 			cu.setImports(imports);
+		}
+	}
+	
+	public void setRefactoringConfigFile(String refactoringConfigFile)
+			throws Exception {
+		File file = new File(refactoringConfigFile);
+
+		if (file.exists()) {
+
+			if (file.canRead()) {
+
+				String text = new Scanner(file).useDelimiter("\\A").next();
+
+				JSONObject o = JSON.parseObject(text);
+
+				Map<String, String> aux = new HashMap<String, String>();
+
+				Set<Map.Entry<String, Object>> entries = o.entrySet();
+
+				Iterator<Map.Entry<String, Object>> it = entries.iterator();
+
+				while (it.hasNext()) {
+					Map.Entry<String, Object> entry = it.next();
+					aux.put(entry.getKey(), entry.getValue().toString());
+					it.remove();
+				}
+				setRefactoringRules(aux);
+			} else {
+				LOG.error("The constants config file ["
+						+ refactoringConfigFile + "] cannot be read");
+			}
+		} else {
+			LOG.error("The constants config file [" + refactoringConfigFile
+					+ "] does not exist");
 		}
 	}
 
