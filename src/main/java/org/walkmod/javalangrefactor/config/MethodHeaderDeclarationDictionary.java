@@ -117,7 +117,7 @@ public class MethodHeaderDeclarationDictionary implements
 		Class<?> c = null;
 
 		try {
-			c = typeTable.getJavaClass(scope);
+			c = typeTable.loadClass(scope);
 
 		} catch (ClassNotFoundException e) {
 
@@ -128,7 +128,7 @@ public class MethodHeaderDeclarationDictionary implements
 
 			try {
 
-				if (typeTable.getJavaClass(mhd.getScope()).isAssignableFrom(c)) {
+				if (typeTable.loadClass(mhd.getScope()).isAssignableFrom(c)) {
 					result.add(mhd);
 				}
 			} catch (ClassNotFoundException e) {

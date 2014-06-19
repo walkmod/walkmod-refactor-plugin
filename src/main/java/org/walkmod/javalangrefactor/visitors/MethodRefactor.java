@@ -35,7 +35,6 @@ import org.walkmod.exceptions.WalkModException;
 import org.walkmod.javalang.ASTManager;
 import org.walkmod.javalang.ParseException;
 import org.walkmod.javalang.ast.CompilationUnit;
-import org.walkmod.javalang.ast.ImportDeclaration;
 import org.walkmod.javalang.ast.Node;
 import org.walkmod.javalang.ast.TypeParameter;
 import org.walkmod.javalang.ast.body.BodyDeclaration;
@@ -72,6 +71,7 @@ import org.walkmod.javalang.ast.type.ReferenceType;
 import org.walkmod.javalang.ast.type.Type;
 import org.walkmod.javalang.compiler.Symbol;
 import org.walkmod.javalang.compiler.SymbolTable;
+import org.walkmod.javalang.compiler.SymbolType;
 import org.walkmod.javalang.compiler.TypeTable;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
 import org.walkmod.javalangrefactor.config.ConstantTransformationDictionary;
@@ -96,13 +96,11 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	private SymbolTable symbolTable;
 
-	private TypeTable typeTable;
+	private TypeTable<VisitorContext> typeTable;
 
 	private ExpressionTypeAnalyzer expressionTypeAnalyzer;
 
 	private ExpressionRefactor exprRefactor;
-
-	private String packageName = null;
 
 	private static final MarkerAnnotationExpr OVERRIDE_ANNOTATION = new MarkerAnnotationExpr(
 			new NameExpr("Override"));
@@ -138,7 +136,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 	public void visit(CompilationUnit unit, VisitorContext arg) {
 		if (!setUp) {
 			symbolTable = new SymbolTable();
-			typeTable = new TypeTable(classLoader);
+			typeTable = new TypeTable<VisitorContext>();
+			typeTable.setClassLoader(classLoader);
 			this.refactoringRules = new RefactoringRulesDictionary(typeTable);
 			createdMethods.setTypeTable(typeTable);
 			removedMethods.setTypeTable(typeTable);
@@ -155,12 +154,9 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 		innerAnonymousClassCounter = 1;
 
-		if (unit.getPackage() != null) {
-			this.packageName = unit.getPackage().getName().toString();
-		} else {
-			packageName = null;
-		}
-		typeTable.setCurrentPackage(packageName);
+		// all types are resolved
+		typeTable.visit(unit, arg);
+		// typeTable.setCurrentPackage(packageName);
 		super.visit(unit, arg);
 
 		typeTable.clear();
@@ -242,8 +238,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 							List<Statement> stmts = (List<Statement>) arg
 									.remove(ExpressionRefactor.PREVIOUS_REQUIRED_STATEMENTS_KEY);
 
-							org.walkmod.javalang.compiler.Type typeName = symbolTable
-									.getType(n.getId().getName());
+							SymbolType typeName = symbolTable.getType(n.getId()
+									.getName());
 							ExpressionStmt constructorASTExpr = null;
 
 							try {
@@ -301,45 +297,36 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 	public void visit(ClassOrInterfaceDeclaration declaration,
 			VisitorContext arg) {
 
-		org.walkmod.javalang.compiler.Type lastScope = symbolTable
-				.getType("this");
+		SymbolType lastScope = symbolTable.getType("this");
 
 		symbolTable.pushScope();
 
 		try {
 
-			String className = getFullName(declaration);
+			String className = typeTable.getFullName(declaration);
 
 			if (lastScope == null) {
-				symbolTable
-						.insertSymbol("this",
-								new org.walkmod.javalang.compiler.Type(
-										className), null);
-				typeTable.setCurrentClassSimpleName(declaration.getName());
+				symbolTable.insertSymbol("this", new SymbolType(className),
+						null);
 			} else {
-				org.walkmod.javalang.compiler.Type type = new org.walkmod.javalang.compiler.Type(
-						lastScope.getName() + "$" + declaration.getName());
+				SymbolType type = new SymbolType(lastScope.getName() + "$"
+						+ declaration.getName());
 
 				symbolTable.insertSymbol("this", type, null);
 
 				String parentName = lastScope.getName().substring(
 						lastScope.getName().lastIndexOf(".") + 1);
 
-				typeTable.setCurrentClassSimpleName(parentName + "$"
-						+ declaration.getName());
-
-				className = typeTable.getCurrentClassSimpleName();
+				className = parentName + "$" + declaration.getName();
 			}
 
 			// adding all parent and accessible fields from superclasses
-			Class<?> clazz = typeTable.getJavaClass(className);
+			Class<?> clazz = typeTable.loadClass(className);
 
 			Class<?> parentClazz = clazz.getSuperclass();
 			if (parentClazz != null) {
-				symbolTable.insertSymbol(
-						"super",
-						new org.walkmod.javalang.compiler.Type(parentClazz
-								.getName()), null);
+				symbolTable.insertSymbol("super",
+						new SymbolType(parentClazz.getName()), null);
 			}
 
 			while (parentClazz != null) {
@@ -352,9 +339,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 							if (!symbolTable.containsSymbol(field.getName())) {
 
 								symbolTable.insertSymbol(field.getName(),
-										new org.walkmod.javalang.compiler.Type(
-												field.getType().getName()),
-										null);
+										new SymbolType(field.getType()
+												.getName()), null);
 							}
 						}
 					}
@@ -382,9 +368,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 							// declared in a more closed superclass
 							if (!symbolTable.containsSymbol(field.getName())) {
 								symbolTable.insertSymbol(field.getName(),
-										new org.walkmod.javalang.compiler.Type(
-												field.getType().getName()),
-										null);
+										new SymbolType(field.getType()
+												.getName()), null);
 							}
 						}
 					}
@@ -403,7 +388,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 						.getAllMethods(symbolTable.getType("this").getName());
 
 				if (!matchingMethods.isEmpty()) {
-					Class<?> c = typeTable.getJavaClass(symbolTable
+					Class<?> c = typeTable.loadClass(symbolTable
 							.getType("this"));
 					Collection<MethodHeaderDeclaration> methodToadd = new LinkedList<MethodHeaderDeclaration>();
 					for (MethodHeaderDeclaration mhm : matchingMethods) {
@@ -588,11 +573,11 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		// change
 		n.accept(expressionTypeAnalyzer, arg);
 
-		org.walkmod.javalang.compiler.Type resultType = (org.walkmod.javalang.compiler.Type) arg
+		SymbolType resultType = (SymbolType) arg
 				.remove(ExpressionTypeAnalyzer.TYPE_KEY);
 
 		try {
-			org.walkmod.javalang.compiler.Type scopeType = null;
+			SymbolType scopeType = null;
 			// updating the scope
 			if (n.getScope() == null) {
 				scopeType = symbolTable.getType("this");
@@ -608,7 +593,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				n.getScope().accept(expressionTypeAnalyzer, arg);
 
 				// retrieving the scope type
-				scopeType = (org.walkmod.javalang.compiler.Type) arg
+				scopeType = (SymbolType) arg
 						.remove(ExpressionTypeAnalyzer.TYPE_KEY);
 
 				// removing scope context
@@ -660,11 +645,11 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				for (Expression e : args) {
 
 					e.accept(expressionTypeAnalyzer, arg);
-					org.walkmod.javalang.compiler.Type aux = (org.walkmod.javalang.compiler.Type) arg
+					SymbolType aux = (SymbolType) arg
 							.remove(ExpressionTypeAnalyzer.TYPE_KEY);
 					if (aux != null) {
 						argStr[i] = aux.getName();
-						argClazzes[i] = typeTable.getJavaClass(argStr[i]);
+						argClazzes[i] = typeTable.loadClass(argStr[i]);
 					} else {
 						// e is a nullLiteralExpr
 						argStr[i] = null;
@@ -704,8 +689,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					arg.put(UPDATED_EXPRESSION_KEY, null);
 
 				} else {
-					Class<?> returnT = typeTable.getJavaClass(resultType);
-					TypeTable.getDefaultValue(returnT);
+					//Class<?> returnT = typeTable.loadClass(resultType);
+					//Types.getDefaultValue(returnT);
 				}
 
 			} else {
@@ -742,7 +727,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 						variableMap
 								.put(mrr.getImplicitVaribale(), n.getScope());
 						variableTypes.put(mrr.getImplicitVaribale(),
-								typeTable.getJavaClass(scopeType));
+								typeTable.loadClass(scopeType));
 
 						List<Expression> argExprRefactored = new LinkedList<Expression>();
 
@@ -1000,7 +985,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		if (n.getScope() != null) {
 
 			n.getScope().accept(expressionTypeAnalyzer, arg);
-			String aux = ((org.walkmod.javalang.compiler.Type) arg
+			String aux = ((SymbolType) arg
 					.remove(ExpressionTypeAnalyzer.TYPE_KEY)).getName();
 
 			aux = aux + "." + n.getField();
@@ -1176,7 +1161,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 	public void setRefactoringRules(Map<String, String> inputRules)
 			throws InvalidTransformationRuleException {
 		this.inputRules = inputRules;
-		
+
 	}
 
 	public Map<String, String> getRefactoringRules() {
@@ -1212,7 +1197,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 			this.createdMethods.add(finalName);
 		}
 	}
-	
+
 	public void setConstantsConfigFile(String constantsConfigFile)
 			throws Exception {
 		File file = new File(constantsConfigFile);
@@ -1238,8 +1223,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				}
 				setConstantTransformations(aux);
 			} else {
-				log.error("The constants config file ["
-						+ constantsConfigFile + "] cannot be read");
+				log.error("The constants config file [" + constantsConfigFile
+						+ "] cannot be read");
 			}
 		} else {
 			log.error("The constants config file [" + constantsConfigFile
@@ -1255,8 +1240,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 	public void visit(VariableDeclarationExpr n, VisitorContext arg) {
 		Type type = n.getType();
 
-		org.walkmod.javalang.compiler.Type resolvedType = typeTable
-				.valueOf(type);
+		SymbolType resolvedType = typeTable.valueOf(type);
 
 		for (VariableDeclarator var : n.getVars()) {
 
@@ -1276,8 +1260,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	@Override
 	public void visit(MethodDeclaration n, VisitorContext arg) {
-		org.walkmod.javalang.compiler.Type thisType = symbolTable
-				.getType("this");
+		SymbolType thisType = symbolTable.getType("this");
 		String[] args = new String[0];
 		if (n.getParameters() != null) {
 			args = new String[n.getParameters().size()];
@@ -1290,7 +1273,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 				Type type = parameter.getType();
 				try {
-					Class<?> resolvedClass = typeTable.getJavaClass(type);
+					Class<?> resolvedClass = typeTable.loadClass(type);
 					args[i] = resolvedClass.getName();
 
 				} catch (ClassNotFoundException e) {
@@ -1362,16 +1345,10 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 	}
 
 	@Override
-	public void visit(ImportDeclaration n, VisitorContext arg) {
-		typeTable.add(n); // para saber los imports del class or interface
-	}
-
-	@Override
 	public void visit(FieldDeclaration n, VisitorContext arg) {
 		Type type = n.getType();
 
-		org.walkmod.javalang.compiler.Type resolvedType = typeTable
-				.valueOf(type);
+		SymbolType resolvedType = typeTable.valueOf(type);
 
 		for (VariableDeclarator var : n.getVariables()) {
 
@@ -1470,26 +1447,19 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		}
 	}
 
-	public String getFullName(ClassOrInterfaceDeclaration declaration) {
-		if (packageName == null) {
-			return declaration.getName();
-		}
-		return this.packageName + "." + declaration.getName();
-	}
-
 	@Override
 	public void visit(ObjectCreationExpr n, VisitorContext arg) {
 
 		arg.remove(APPLIED_REFACTORING_RULE_KEY);
 		arg.remove(APPLIED_CONSTANT_TRANSFORMATION_TYPE);
 
-		org.walkmod.javalang.compiler.Type objectScope = null;
+		SymbolType objectScope = null;
 
 		if (n.getScope() != null) {
 
 			n.getScope().accept(expressionTypeAnalyzer, arg);
 
-			objectScope = (org.walkmod.javalang.compiler.Type) arg
+			objectScope = (SymbolType) arg
 					.remove(ExpressionTypeAnalyzer.TYPE_KEY);
 
 			n.getScope().accept(this, arg);
@@ -1498,8 +1468,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				n.setScope((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
 			}
 		} else {
-			objectScope = new org.walkmod.javalang.compiler.Type(
-					typeTable.getFullName(n.getType()));
+			objectScope = new SymbolType(typeTable.getFullName(n.getType()));
 		}
 		if (n.getTypeArgs() != null) {
 			for (Type t : n.getTypeArgs()) {
@@ -1522,7 +1491,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 			for (Expression e : args) {
 				// Calculating the type without code changes
 				e.accept(expressionTypeAnalyzer, arg);
-				org.walkmod.javalang.compiler.Type eType = (org.walkmod.javalang.compiler.Type) arg
+				SymbolType eType = (SymbolType) arg
 						.remove(ExpressionTypeAnalyzer.TYPE_KEY);
 
 				if (eType != null) {
@@ -1739,14 +1708,14 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		if (n.getAnonymousClassBody() != null) {
 			symbolTable.pushScope();
 
-			org.walkmod.javalang.compiler.Type anonymousType = new org.walkmod.javalang.compiler.Type();
+			SymbolType anonymousType = new SymbolType();
 
 			Class<?> anonymousClazz = null;
 			Class<?> clazz = null;
 
 			try {
 
-				clazz = typeTable.getJavaClass(symbolTable.getType("this"));
+				clazz = typeTable.loadClass(symbolTable.getType("this"));
 
 				/**
 				 * Anonymous name clases <fully qualified top level class name>(
@@ -1759,9 +1728,9 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 				// TODO: put the type variables
 
-				org.walkmod.javalang.compiler.Type parentScope = new org.walkmod.javalang.compiler.Type();
+				SymbolType parentScope = new SymbolType();
 
-				anonymousClazz = typeTable.getJavaClass(anonymousType);
+				anonymousClazz = typeTable.loadClass(anonymousType);
 
 				Class<?> superClazz = anonymousClazz.getSuperclass();
 
@@ -1775,22 +1744,11 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				throw new WalkModException(e);
 			}
 
-			String previousType = typeTable.getCurrentClassSimpleName();
-
-			String previousPackage = typeTable.getCurrentPackage();
-
-			typeTable.setCurrentClassSimpleName(clazz.getSimpleName() + "$"
-					+ innerAnonymousClassCounter);
-
-			typeTable.setCurrentPackage(clazz.getPackage().getName());
-
 			for (BodyDeclaration member : n.getAnonymousClassBody()) {
 				member.accept(this, arg);
 			}
 
 			symbolTable.popScope();
-			typeTable.setCurrentClassSimpleName(previousType);
-			typeTable.setCurrentPackage(previousPackage);
 			innerAnonymousClassCounter++;
 		}
 	}

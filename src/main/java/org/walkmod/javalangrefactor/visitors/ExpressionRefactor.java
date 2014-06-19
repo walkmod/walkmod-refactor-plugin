@@ -41,6 +41,7 @@ import org.walkmod.javalang.ast.stmt.Statement;
 import org.walkmod.javalang.ast.type.Type;
 import org.walkmod.javalang.compiler.Symbol;
 import org.walkmod.javalang.compiler.SymbolTable;
+import org.walkmod.javalang.compiler.Types;
 import org.walkmod.javalang.compiler.TypeTable;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
 import org.walkmod.walkers.VisitorContext;
@@ -61,7 +62,7 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	private Set<String> refactoredVariables = new HashSet<String>();
 
-	private TypeTable typeTable;
+	private TypeTable<VisitorContext> typeTable;
 
 	private SymbolTable symbolTable;
 
@@ -87,7 +88,7 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 		this.symbolTable = symbolTable;
 	}
 
-	public void setTypeTable(TypeTable typeTable) {
+	public void setTypeTable(TypeTable<VisitorContext> typeTable) {
 		this.typeTable = typeTable;
 	}
 
@@ -141,18 +142,17 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 				Class<?> classExpr = variableTypes.get(ne.getName());
 
 				try {
-					Class<?> castClass = typeTable.getJavaClass(n.getType());
-					if (TypeTable.isCompatible(classExpr, castClass)) {
+					Class<?> castClass = typeTable.loadClass(n.getType());
+					if (Types.isCompatible(classExpr, castClass)) {
 
 						n.setData(updatedExpr);
 					} else {
 
 						if (castClass.isPrimitive() 
 								&& !classExpr.isPrimitive()
-								&& TypeTable.isPrimitiveWrapperClass(classExpr)) {
+								&& Types.getWrapperClasses().containsKey(classExpr)) {
 
-							updatedExpr = TypeTable
-									.getPrimitiveMethodCallExpr(classExpr,
+							updatedExpr = getPrimitiveMethodCallExpr(classExpr,
 											updatedExpr);
 
 						}
@@ -169,6 +169,27 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 			n.getExpr().accept(this, arg);
 		}
 
+	}
+	
+	private MethodCallExpr getPrimitiveMethodCallExpr(Class<?> clazz,
+			Expression scope) {
+		Map<String, String> wrapperClasses = Types.getWrapperClasses();
+		if (wrapperClasses.containsKey(clazz.getName())) {
+			String basicType = wrapperClasses.get(clazz.getName());
+			String methodCallExpr = scope.toString() + "." + basicType
+					+ "Value()";
+
+			try {
+				return (MethodCallExpr) ASTManager.parse(MethodCallExpr.class,
+						methodCallExpr);
+
+			} catch (ParseException e) {
+				throw new RuntimeException(e.getCause());
+			}
+
+		}
+		throw new RuntimeException("The clazz " + clazz.getName()
+				+ " is not a basic type");
 	}
 
 	@Override
@@ -223,7 +244,7 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 								} else {
 
 									variableName = symbolTable
-											.createSymbol(new org.walkmod.javalang.compiler.Type(
+											.createSymbol(new org.walkmod.javalang.compiler.SymbolType(
 													typeName));
 
 									constructorStringExpr = typeName + " "
@@ -239,7 +260,7 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 							} else {
 
 								variableName = symbolTable
-										.createSymbol(new org.walkmod.javalang.compiler.Type(
+										.createSymbol(new org.walkmod.javalang.compiler.SymbolType(
 												typeName));
 
 								constructorStringExpr = typeName + " "

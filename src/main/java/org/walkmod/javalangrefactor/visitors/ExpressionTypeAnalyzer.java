@@ -16,6 +16,7 @@
 package org.walkmod.javalangrefactor.visitors;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.TypeVariable;
@@ -53,7 +54,8 @@ import org.walkmod.javalang.ast.expr.StringLiteralExpr;
 import org.walkmod.javalang.ast.expr.SuperExpr;
 import org.walkmod.javalang.ast.expr.ThisExpr;
 import org.walkmod.javalang.compiler.SymbolTable;
-import org.walkmod.javalang.compiler.Type;
+import org.walkmod.javalang.compiler.SymbolType;
+import org.walkmod.javalang.compiler.Types;
 import org.walkmod.javalang.compiler.TypeTable;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
 import org.walkmod.walkers.VisitorContext;
@@ -76,7 +78,8 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	private SymbolTable symbolTable;
 
-	public ExpressionTypeAnalyzer(TypeTable typeTable, SymbolTable symbolTable) {
+	public ExpressionTypeAnalyzer(TypeTable typeTable,
+			SymbolTable symbolTable) {
 		this.typeTable = typeTable;
 		this.symbolTable = symbolTable;
 
@@ -85,9 +88,8 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 	@Override
 	public void visit(ArrayAccessExpr n, VisitorContext arg) {
 		n.getName().accept(this, arg);
-		org.walkmod.javalang.compiler.Type arrayType = (org.walkmod.javalang.compiler.Type) arg
-				.remove(TYPE_KEY);
-		org.walkmod.javalang.compiler.Type newType = new org.walkmod.javalang.compiler.Type();
+		SymbolType arrayType = (SymbolType) arg.remove(TYPE_KEY);
+		SymbolType newType = new SymbolType();
 		newType.setName(arrayType.getName());
 		newType.setParameterizedTypes(arrayType.getParameterizedTypes());
 		newType.setArrayCount(arrayType.getArrayCount() - 1);
@@ -96,7 +98,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	@Override
 	public void visit(ArrayCreationExpr n, VisitorContext arg) {
-		Type arrayType = typeTable.valueOf(n.getType());
+		SymbolType arrayType = typeTable.valueOf(n.getType());
 		arrayType.setArrayCount(1);
 		arg.put(TYPE_KEY, arrayType);
 	}
@@ -105,18 +107,16 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 	public void visit(BinaryExpr n, VisitorContext arg) {
 
 		n.getLeft().accept(this, arg);
-		org.walkmod.javalang.compiler.Type leftType = (org.walkmod.javalang.compiler.Type) arg
-				.remove(TYPE_KEY);
+		SymbolType leftType = (SymbolType) arg.remove(TYPE_KEY);
 
 		n.getRight().accept(this, arg);
-		org.walkmod.javalang.compiler.Type rightType = (org.walkmod.javalang.compiler.Type) arg
-				.remove(TYPE_KEY);
+		SymbolType rightType = (SymbolType) arg.remove(TYPE_KEY);
 
-		org.walkmod.javalang.compiler.Type resultType = leftType;
+		SymbolType resultType = leftType;
 
 		try {
-			if (TypeTable.isCompatible(typeTable.getJavaClass(leftType),
-					typeTable.getJavaClass(rightType))) {
+			if (Types.isCompatible(typeTable.loadClass(leftType),
+					typeTable.loadClass(rightType))) {
 				resultType = rightType;
 			}
 		} catch (ClassNotFoundException e) {
@@ -138,7 +138,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	@Override
 	public void visit(BooleanLiteralExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("boolean"));
+		arg.put(TYPE_KEY, new SymbolType("boolean"));
 	}
 
 	@Override
@@ -148,13 +148,12 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	@Override
 	public void visit(CharLiteralExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("char"));
+		arg.put(TYPE_KEY, new SymbolType("char"));
 	}
 
 	@Override
 	public void visit(ClassExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type(
-				"java.lang.Class"));
+		arg.put(TYPE_KEY, new SymbolType("java.lang.Class"));
 	}
 
 	@Override
@@ -165,7 +164,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	@Override
 	public void visit(DoubleLiteralExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("double"));
+		arg.put(TYPE_KEY, new SymbolType("double"));
 	}
 
 	@Override
@@ -184,17 +183,16 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 			arg.put(REQUIRED_METHOD, requiredMethod);
 		}
 
-		org.walkmod.javalang.compiler.Type scopeType = (org.walkmod.javalang.compiler.Type) arg
-				.remove(TYPE_KEY);
+		SymbolType scopeType = (SymbolType) arg.remove(TYPE_KEY);
 
 		Class<?> c = null;
 
 		try {
-			c = typeTable.getJavaClass(scopeType);
+			c = typeTable.loadClass(scopeType);
 			Field field = null;
 			if (c.isArray() && n.getField().equals("length")) {
 
-				arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("int"));
+				arg.put(TYPE_KEY, new SymbolType("int"));
 			} else {
 				try {
 
@@ -207,7 +205,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 					} catch (NoSuchFieldException fe2) {
 						// it is an inner class parsed as a field declaration
-						c = typeTable.getJavaClass(c.getName() + "$"
+						c = typeTable.loadClass(c.getName() + "$"
 								+ n.getField());
 						scopeType.setName(c.getName());
 						arg.put(TYPE_KEY, scopeType);
@@ -216,7 +214,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 				}
 
-				Map<String, Type> typeMapping = new HashMap<String, Type>();
+				Map<String, SymbolType> typeMapping = new HashMap<String, SymbolType>();
 
 				TypeVariable<?>[] typeParams = c.getTypeParameters();
 
@@ -228,14 +226,13 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 							typeMapping.put(typeParams[i].getName(), scopeType
 									.getParameterizedTypes().get(i));
 						} else {
-							typeMapping.put(typeParams[i].getName(), new Type(
-									"java.lang.Object"));
+							typeMapping.put(typeParams[i].getName(),
+									new SymbolType("java.lang.Object"));
 						}
 					}
 
 				}
-				arg.put(TYPE_KEY,
-						typeTable.valueOf(field.getType(), typeMapping));
+				arg.put(TYPE_KEY, valueOf(field.getType(), typeMapping));
 			}
 
 		} catch (ClassNotFoundException e) {
@@ -247,35 +244,94 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 		}
 	}
 
+	private org.walkmod.javalang.compiler.SymbolType valueOf(
+			java.lang.reflect.Type type, Map<String, SymbolType> typeMapping) {
+
+		SymbolType returnType = null;
+
+		if (type instanceof Class<?>) {
+			Class<?> aux = ((Class<?>) type);
+			returnType = new SymbolType(aux.getName());
+			if (aux.isArray()) {
+				returnType.setArrayCount(1);
+				returnType.setName(aux.getComponentType().getName());
+			}
+
+		} else if (type instanceof TypeVariable) {
+
+			String variableName = ((TypeVariable<?>) type).getName();
+			SymbolType aux = typeMapping.get(variableName);
+
+			if (aux == null) {
+				aux = new SymbolType(Object.class.getName());
+				return aux;
+			} else {
+				return aux;
+			}
+
+		} else if (type instanceof ParameterizedType) {
+			Class<?> auxClass = (Class<?>) ((ParameterizedType) type)
+					.getRawType();
+
+			java.lang.reflect.Type[] types = ((ParameterizedType) type)
+					.getActualTypeArguments();
+
+			returnType = new SymbolType(auxClass.getName());
+
+			if (types != null) {
+				List<SymbolType> params = new LinkedList<SymbolType>();
+				returnType.setParameterizedTypes(params);
+				for (java.lang.reflect.Type t : types) {
+					SymbolType param = typeMapping.get(t.toString());
+					params.add(param);
+				}
+			}
+
+		} else if (type instanceof GenericArrayType) {
+			// method.getReturnType();(
+			returnType = new SymbolType(valueOf(
+					((GenericArrayType) type).getGenericComponentType(),
+					typeMapping).getName());
+
+			returnType.setArrayCount(1);
+
+		} else {
+			throw new RuntimeException("Unssuported Java Type "
+					+ type.toString());
+		}
+		return returnType;
+
+	}
+
 	@Override
 	public void visit(InstanceOfExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("boolean"));
+		arg.put(TYPE_KEY, new SymbolType("boolean"));
 	}
 
 	@Override
 	public void visit(IntegerLiteralExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("int"));
+		arg.put(TYPE_KEY, new SymbolType("int"));
 	}
 
 	@Override
 	public void visit(IntegerLiteralMinValueExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("int"));
+		arg.put(TYPE_KEY, new SymbolType("int"));
 	}
 
 	@Override
 	public void visit(LongLiteralExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("long"));
+		arg.put(TYPE_KEY, new SymbolType("long"));
 	}
 
 	@Override
 	public void visit(LongLiteralMinValueExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type("long"));
+		arg.put(TYPE_KEY, new SymbolType("long"));
 	}
 
 	@Override
 	public void visit(MethodCallExpr n, VisitorContext arg) {
 		try {
-			Type scope;
+			SymbolType scope;
 
 			MethodCallExpr antRequiredMethod = (MethodCallExpr) arg
 					.remove(ExpressionTypeAnalyzer.REQUIRED_METHOD);
@@ -291,7 +347,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 				arg.remove(ExpressionTypeAnalyzer.REQUIRED_METHOD);
 
-				scope = (Type) arg.remove(TYPE_KEY);
+				scope = (SymbolType) arg.remove(TYPE_KEY);
 
 			} else {
 				scope = symbolTable.getType("this");
@@ -304,9 +360,8 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 				for (Expression e : n.getArgs()) {
 
 					e.accept(this, arg);
-					org.walkmod.javalang.compiler.Type argType = (org.walkmod.javalang.compiler.Type) arg
-							.remove(TYPE_KEY);
-					typeArgs[i] = typeTable.getJavaClass(argType);
+					SymbolType argType = (SymbolType) arg.remove(TYPE_KEY);
+					typeArgs[i] = typeTable.loadClass(argType);
 					i++;
 				}
 			}
@@ -324,9 +379,9 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 			FieldAccessExpr requiredField = (FieldAccessExpr) arg
 					.remove(REQUIRED_ATTRIBUTE);
 
-			Map<String, Type> typeMapping = new HashMap<String, Type>();
+			Map<String, SymbolType> typeMapping = new HashMap<String, SymbolType>();
 
-			Class<?> clazz = typeTable.getJavaClass(scope);
+			Class<?> clazz = typeTable.loadClass(scope);
 
 			TypeVariable<?>[] typeParams = clazz.getTypeParameters();
 
@@ -337,8 +392,8 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 						typeMapping.put(typeParams[i].getName(), scope
 								.getParameterizedTypes().get(i));
 					} else {
-						typeMapping.put(typeParams[i].getName(), new Type(
-								"java.lang.Object"));
+						typeMapping.put(typeParams[i].getName(),
+								new SymbolType("java.lang.Object"));
 					}
 				}
 
@@ -348,7 +403,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 					n.getArgs(), requiredMethod, requiredField, arg,
 					typeMapping);
 
-			arg.put(TYPE_KEY, typeTable.getMethodType(method, typeMapping));
+			arg.put(TYPE_KEY, getMethodType(method, typeMapping));
 
 		} catch (ClassNotFoundException e) {
 			throw new WalkModException(e);
@@ -359,9 +414,9 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	}
 
-	private Method getMethod(org.walkmod.javalang.compiler.Type scope, // scope
-																		// to
-																		// find
+	private Method getMethod(SymbolType scope, // scope
+												// to
+												// find
 			// the method
 			String methodName, // method name to look for.
 								// Multiple methods with the same name can exist
@@ -379,11 +434,12 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 			FieldAccessExpr requiredField, // required field into the return
 											// type
 			VisitorContext arg, // context
-			Map<String, Type> typeMapping // mapping for Java Generics applied
-											// into the scope
+			Map<String, SymbolType> typeMapping // mapping for Java Generics
+												// applied
+	// into the scope
 	) throws ClassNotFoundException {
 
-		Class<?> clazz = typeTable.getJavaClass(scope);
+		Class<?> clazz = typeTable.loadClass(scope);
 
 		Method[] classMethods = clazz.getMethods();
 
@@ -410,10 +466,10 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 								if (variableName.length() == 1) {
 									if (argumentValues.get(j) instanceof ClassExpr) {
 										Class<?> paramClass = typeTable
-												.getJavaClass(((ClassExpr) argumentValues
+												.loadClass(((ClassExpr) argumentValues
 														.get(j)).getType());
 
-										org.walkmod.javalang.compiler.Type auxType = new Type();
+										SymbolType auxType = new SymbolType();
 										auxType.setName(paramClass.getName());
 
 										typeMapping.put(variableName, auxType);
@@ -425,11 +481,10 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 				}
 			}
 
-			org.walkmod.javalang.compiler.Type returnType = typeTable
-					.getMethodType(method, typeMapping);
+			SymbolType returnType = getMethodType(method, typeMapping);
 
 			if (isCompatible(method, methodName, typeArgs,
-					typeTable.getJavaClass(returnType), requiredMethod,
+					typeTable.loadClass(returnType), requiredMethod,
 					requiredField, arg)) {
 				arg.put(TYPE_KEY, returnType);
 				typeMapping.putAll(typeMapping);
@@ -464,10 +519,10 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 								if (variableName.length() == 1) {
 									if (argumentValues.get(j) instanceof ClassExpr) {
 										Class<?> paramClass = typeTable
-												.getJavaClass(((ClassExpr) argumentValues
+												.loadClass(((ClassExpr) argumentValues
 														.get(j)).getType());
 
-										org.walkmod.javalang.compiler.Type auxType = new Type();
+										SymbolType auxType = new SymbolType();
 										auxType.setName(paramClass.getName());
 
 										typeMapping.put(variableName, auxType);
@@ -479,11 +534,10 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 				}
 			}
 
-			org.walkmod.javalang.compiler.Type returnType = typeTable
-					.getMethodType(method, typeMapping);
+			SymbolType returnType = getMethodType(method, typeMapping);
 
 			if (isCompatible(method, methodName, typeArgs,
-					typeTable.getJavaClass(returnType), requiredMethod,
+					typeTable.loadClass(returnType), requiredMethod,
 					requiredField, arg)) {
 				arg.put(TYPE_KEY, returnType);
 				typeMapping.putAll(typeMapping);
@@ -494,25 +548,32 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 		Method result = null;
 		if (clazz.isMemberClass()) {
 
-			result = getMethod(new org.walkmod.javalang.compiler.Type(clazz
-					.getEnclosingClass().getName()), methodName, typeArgs,
-					argumentValues, requiredMethod, requiredField, arg,
-					typeMapping);
+			result = getMethod(new SymbolType(clazz.getEnclosingClass()
+					.getName()), methodName, typeArgs, argumentValues,
+					requiredMethod, requiredField, arg, typeMapping);
 		} else if (clazz.isAnonymousClass()) {
-			result = getMethod(new org.walkmod.javalang.compiler.Type(clazz
-					.getEnclosingClass().getName()), methodName, typeArgs,
-					argumentValues, requiredMethod, requiredField, arg,
-					typeMapping);
+			result = getMethod(new SymbolType(clazz.getEnclosingClass()
+					.getName()), methodName, typeArgs, argumentValues,
+					requiredMethod, requiredField, arg, typeMapping);
 		}
 		if (result == null && clazz.getSuperclass() != null) {
 
-			return getMethod(new org.walkmod.javalang.compiler.Type(clazz
-					.getSuperclass().getName()), methodName, typeArgs,
-					argumentValues, requiredMethod, requiredField, arg,
-					typeMapping);
+			return getMethod(new SymbolType(clazz.getSuperclass().getName()),
+					methodName, typeArgs, argumentValues, requiredMethod,
+					requiredField, arg, typeMapping);
 		}
 		return result;
 
+	}
+	
+
+	private SymbolType getMethodType(Method method,
+			Map<String, SymbolType> typeMapping) throws ClassNotFoundException {
+
+		// mirem el tipus de resultat
+		java.lang.reflect.Type type = method.getGenericReturnType();
+
+		return valueOf(type, typeMapping);
 	}
 
 	private boolean isCompatible(Method method, String name,
@@ -559,14 +620,14 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 				for (int i = 0; i < numParams && isCompatible; i++) {
 
-					isCompatible = TypeTable.isCompatible(typeArgs[i],
+					isCompatible = Types.isCompatible(typeArgs[i],
 							methodParameterTypes[i]);
 				}
 
 				if (isCompatible && lastVariableTypeArg != null) {
 
 					for (int j = numParams; j < typeArgs.length && isCompatible; j++) {
-						isCompatible = TypeTable.isCompatible(typeArgs[j],
+						isCompatible = Types.isCompatible(typeArgs[j],
 								lastVariableTypeArg);
 
 					}
@@ -604,12 +665,11 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 									int k = 0;
 									for (Expression argExpr : args) {
 										argExpr.accept(this, arg);
-										org.walkmod.javalang.compiler.Type typeArg = (org.walkmod.javalang.compiler.Type) arg
+										SymbolType typeArg = (SymbolType) arg
 												.remove(TYPE_KEY);
-										if (!TypeTable
-												.isCompatible(typeTable
-														.getJavaClass(typeArg),
-														parameterTypes[k])) {
+										if (!Types.isCompatible(
+												typeTable.loadClass(typeArg),
+												parameterTypes[k])) {
 											compatibleArgs = false;
 										}
 										k++;
@@ -663,13 +723,12 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	@Override
 	public void visit(NameExpr n, VisitorContext arg) {
-		Type type = symbolTable.getType(n.getName());
+		SymbolType type = symbolTable.getType(n.getName());
 
 		if (type == null) {
 			try {
-				String className = typeTable.getJavaClass(n.getName())
-						.getName();
-				type = new Type();
+				String className = typeTable.loadClass(n.getName()).getName();
+				type = new SymbolType();
 				type.setName(className);
 			} catch (ClassNotFoundException e) {
 
@@ -692,8 +751,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	@Override
 	public void visit(QualifiedNameExpr n, VisitorContext arg) {
-		org.walkmod.javalang.compiler.Type type = new org.walkmod.javalang.compiler.Type(
-				n.getName());
+		SymbolType type = new SymbolType(n.getName());
 		NameExpr aux = n.getQualifier();
 		while (aux != null) {
 			type.setName(type.getName() + "." + aux.getName());
@@ -708,8 +766,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	@Override
 	public void visit(StringLiteralExpr n, VisitorContext arg) {
-		arg.put(TYPE_KEY, new org.walkmod.javalang.compiler.Type(
-				"java.lang.String"));
+		arg.put(TYPE_KEY, new SymbolType("java.lang.String"));
 	}
 
 	@Override

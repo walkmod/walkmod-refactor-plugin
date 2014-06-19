@@ -82,7 +82,7 @@ public class MethodHeaderDeclaration {
 						.getType()).getName();
 			}
 
-			res[i] = typeTable.getJavaClass(typeName);
+			res[i] = typeTable.loadClass(typeName);
 			i++;
 		}
 		return res;

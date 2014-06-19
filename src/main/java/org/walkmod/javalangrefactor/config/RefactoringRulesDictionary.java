@@ -25,6 +25,7 @@ import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
 import org.walkmod.exceptions.WalkModException;
+import org.walkmod.javalang.compiler.Types;
 import org.walkmod.javalang.compiler.TypeTable;
 import org.walkmod.javalangrefactor.exceptions.InvalidRefactoringRuleException;
 
@@ -60,9 +61,9 @@ public class RefactoringRulesDictionary {
 			MethodRefactoringRule current = it.next();
 
 			if (current.getSourceScope().equals(scopeType)
-					|| TypeTable.isCompatible(
-							typeTable.getJavaClass(scopeType),
-							typeTable.getJavaClass(current.getSourceScope()))) {
+					|| Types.isCompatible(
+							typeTable.loadClass(scopeType),
+							typeTable.loadClass(current.getSourceScope()))) {
 
 				if (current.getSourceMethodName().equals(method)) {
 
@@ -81,9 +82,9 @@ public class RefactoringRulesDictionary {
 							String superClazz = jt.next();
 
 							if (!args[i].equals(superClazz)
-									&& !TypeTable.isCompatible(
-											typeTable.getJavaClass(args[i]),
-											typeTable.getJavaClass(superClazz))) {
+									&& !Types.isCompatible(
+											typeTable.loadClass(args[i]),
+											typeTable.loadClass(superClazz))) {
 
 								compatible = false;
 							}
