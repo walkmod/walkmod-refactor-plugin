@@ -82,6 +82,7 @@ import org.walkmod.refactor.config.RefactoringRulesDictionary;
 import org.walkmod.walkers.VisitorContext;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
@@ -689,8 +690,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					arg.put(UPDATED_EXPRESSION_KEY, null);
 
 				} else {
-					//Class<?> returnT = typeTable.loadClass(resultType);
-					//Types.getDefaultValue(returnT);
+					// Class<?> returnT = typeTable.loadClass(resultType);
+					// Types.getDefaultValue(returnT);
 				}
 
 			} else {
@@ -1166,6 +1167,33 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	public Map<String, String> getRefactoringRules() {
 		return inputRules;
+	}
+
+	public void setRemovedMethodsConfig(String removedMethodsConfig)
+			throws Exception {
+		File file = new File(removedMethodsConfig);
+
+		if (file.exists()) {
+
+			if (file.canRead()) {
+
+				String text = new Scanner(file).useDelimiter("\\A").next();
+
+				JSONArray o = JSON.parseArray(text);
+
+				Collection<String> removedMethods = new LinkedList<String>();
+				for (Object item : o) {
+					removedMethods.add(item.toString());
+				}
+				setRemovedMethods(removedMethods);
+			} else {
+				log.error("The refactoring config file for removed methods ["
+						+ removedMethodsConfig + "] cannot be read");
+			}
+		} else {
+			log.error("The refactoring config file [" + removedMethodsConfig
+					+ "] does not exist");
+		}
 	}
 
 	public void setRemovedMethods(Collection<String> deletedMethods)
