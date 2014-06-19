@@ -2,9 +2,10 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.walkmod</groupId>
-	<artifactId>javalang-refactor</artifactId>
+	<artifactId>walkmod-refactor-plugin</artifactId>
 	<version>1.0</version>
-	<url>https://github.com/rpau/javalang-refactor</url>
+	<url>https://github.com/rpau/walkmod-refactor-plugin</url>
+	<name>walkmod-refactor-plugin</name>
 	<licenses>
 		<license>
 			<name>GNU General Public License (GPL v.3)</name>
@@ -57,7 +58,7 @@
 		<dependency>
 			<groupId>org.walkmod</groupId>
 			<artifactId>javalang-compiler</artifactId>
-			<version>1.0</version>
+			<version>[1.0, 2.0)</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
@@ -68,7 +69,44 @@
 		<dependency>
 			<groupId>org.walkmod</groupId>
 			<artifactId>walkmod-core</artifactId>
-			<version>1.0.5</version>
+			<version>[1.0.5, 2.0.0)</version>
 		</dependency>
 	</dependencies>
+	<profiles>
+		<profile>
+			<id>default-tools.jar</id>
+			<activation>
+				<property>
+					<name>java.vendor</name>
+					<value>Sun Microsystems Inc.</value>
+				</property>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>com.sun</groupId>
+					<artifactId>tools</artifactId>
+					<version>1.4.2</version>
+					<scope>system</scope>
+					<systemPath>${java.home}/../lib/tools.jar</systemPath>
+				</dependency>
+			</dependencies>
+		</profile>
+	</profiles>
+	<scm>
+		<url>https://github.com/rpau/walkmod-refactor-plugin.git</url>
+		<connection>https://github.com/rpau/walkmod-refactor-plugin.git</connection>
+	</scm>
+	<developers>
+		<developer>
+			<id>rpau</id>
+			<name>rpau</name>
+			<email>raquelpau@gmail.com</email>
+		</developer>
+		<developer>
+			<id>acoroleu</id>
+			<name>acoroleu</name>
+			<email>acoroleu@gmail.com</email>
+		</developer>
+	</developers>
+	<description>Visitors for refactoring (migration) purposes (i.e upgrade a third-party API).</description>
 </project>

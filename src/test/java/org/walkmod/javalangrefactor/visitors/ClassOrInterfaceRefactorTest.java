@@ -11,6 +11,7 @@ import org.walkmod.javalang.ast.CompilationUnit;
 import org.walkmod.javalang.ast.ImportDeclaration;
 import org.walkmod.javalang.ast.body.BodyDeclaration;
 import org.walkmod.javalang.ast.body.FieldDeclaration;
+import org.walkmod.refactor.visitors.ClassOrInterfaceRefactor;
 import org.walkmod.walkers.VisitorContext;
 
 public class ClassOrInterfaceRefactorTest {

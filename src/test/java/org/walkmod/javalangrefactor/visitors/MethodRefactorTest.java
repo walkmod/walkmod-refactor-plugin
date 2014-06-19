@@ -21,6 +21,7 @@ import org.junit.Test;
 import org.walkmod.javalang.ASTManager;
 import org.walkmod.javalang.ast.CompilationUnit;
 import org.walkmod.javalang.ast.body.MethodDeclaration;
+import org.walkmod.refactor.visitors.MethodRefactor;
 import org.walkmod.walkers.VisitorContext;
 
 public class MethodRefactorTest {

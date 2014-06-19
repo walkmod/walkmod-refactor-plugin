@@ -13,7 +13,7 @@
  
  You should have received a copy of the GNU Lesser General Public License
  along with Walkmod.  If not, see <http://www.gnu.org/licenses/>.*/
-package org.walkmod.javalangrefactor.visitors;
+package org.walkmod.refactor.visitors;
 
 import org.walkmod.javalang.ast.body.Parameter;
 import org.walkmod.javalang.ast.expr.VariableDeclarationExpr;

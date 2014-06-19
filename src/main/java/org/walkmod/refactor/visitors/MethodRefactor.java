@@ -13,7 +13,7 @@
  
  You should have received a copy of the GNU Lesser General Public License
  along with Walkmod.  If not, see <http://www.gnu.org/licenses/>.*/
-package org.walkmod.javalangrefactor.visitors;
+package org.walkmod.refactor.visitors;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -74,11 +74,11 @@ import org.walkmod.javalang.compiler.SymbolTable;
 import org.walkmod.javalang.compiler.SymbolType;
 import org.walkmod.javalang.compiler.TypeTable;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
-import org.walkmod.javalangrefactor.config.ConstantTransformationDictionary;
-import org.walkmod.javalangrefactor.config.MethodHeaderDeclaration;
-import org.walkmod.javalangrefactor.config.MethodHeaderDeclarationDictionary;
-import org.walkmod.javalangrefactor.config.MethodRefactoringRule;
-import org.walkmod.javalangrefactor.config.RefactoringRulesDictionary;
+import org.walkmod.refactor.config.ConstantTransformationDictionary;
+import org.walkmod.refactor.config.MethodHeaderDeclaration;
+import org.walkmod.refactor.config.MethodHeaderDeclarationDictionary;
+import org.walkmod.refactor.config.MethodRefactoringRule;
+import org.walkmod.refactor.config.RefactoringRulesDictionary;
 import org.walkmod.walkers.VisitorContext;
 
 import com.alibaba.fastjson.JSON;
