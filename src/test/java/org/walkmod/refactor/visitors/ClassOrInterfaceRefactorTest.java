@@ -1,4 +1,4 @@
-package org.walkmod.javalangrefactor.visitors;
+package org.walkmod.refactor.visitors;
 
 import java.util.HashMap;
 import java.util.Map;

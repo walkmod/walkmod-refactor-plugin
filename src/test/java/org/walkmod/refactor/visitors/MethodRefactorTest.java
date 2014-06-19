@@ -1,4 +1,4 @@
-package org.walkmod.javalangrefactor.visitors;
+package org.walkmod.refactor.visitors;
 
 import java.io.File;
 import java.io.FileWriter;
