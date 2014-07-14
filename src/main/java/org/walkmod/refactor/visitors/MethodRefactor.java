@@ -600,7 +600,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 			if (n.getScope() == null) {
 				scopeType = symbolTable.getType("this");
 			} else {
-				
+
 				// Recursive call
 				n.getScope().accept(expressionTypeAnalyzer, arg);
 
@@ -608,7 +608,6 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				scopeType = (SymbolType) arg
 						.remove(ExpressionTypeAnalyzer.TYPE_KEY);
 
-				
 				/**
 				 * creating a valid context. We cannot use assign variables as
 				 * for inner operations as an IO parameter. That is beacuse it
@@ -1314,26 +1313,29 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		}
 		boolean hasParameterizedTypes = false;
 
-		//checking if the method contains some parameter whose type is a template variable instead of being a type.
+		// checking if the method contains some parameter whose type is a
+		// template variable instead of being a type.
 		List<SymbolType> parameterizedTypes = thisType.getParameterizedTypes();
 		if (parameterizedTypes != null && !parameterizedTypes.isEmpty()) {
 			List<Parameter> parameters = n.getParameters();
 			if (parameters != null) {
 				Iterator<Parameter> it = parameters.iterator();
-				
-				while(it.hasNext() && ! hasParameterizedTypes){
+
+				while (it.hasNext() && !hasParameterizedTypes) {
 					Parameter parameter = it.next();
 					Type type = parameter.getType();
-					
-					if (type instanceof ClassOrInterfaceType){
-						String name = ((ClassOrInterfaceType)type).getName();
-						hasParameterizedTypes = parameterizedTypes.contains(new SymbolType(name));
-					}					
-					else if(type instanceof ReferenceType){
-						type = ((ReferenceType)type).getType();
-						if(type instanceof ClassOrInterfaceType){
-							String name = ((ClassOrInterfaceType)type).getName();
-							hasParameterizedTypes = parameterizedTypes.contains(new SymbolType(name));
+
+					if (type instanceof ClassOrInterfaceType) {
+						String name = ((ClassOrInterfaceType) type).getName();
+						hasParameterizedTypes = parameterizedTypes
+								.contains(new SymbolType(name));
+					} else if (type instanceof ReferenceType) {
+						type = ((ReferenceType) type).getType();
+						if (type instanceof ClassOrInterfaceType) {
+							String name = ((ClassOrInterfaceType) type)
+									.getName();
+							hasParameterizedTypes = parameterizedTypes
+									.contains(new SymbolType(name));
 						}
 					}
 				}
@@ -1358,22 +1360,23 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				}
 			}
 
-			// if a deteled method contains the overwrite annotation, the
-			// annotation
-			// is removed
-			List<AnnotationExpr> annotations = n.getAnnotations();
+			if (removedMethods.contains(thisType.getName(), n.getName(), args)) {
+				// if a deteled method contains the overwrite annotation, then the override annotation is removed
+				List<AnnotationExpr> annotations = n.getAnnotations();
 
-			if (annotations != null) {
-				List<AnnotationExpr> newAnnotations = new LinkedList<AnnotationExpr>();
+				if (annotations != null) {
+					List<AnnotationExpr> newAnnotations = new LinkedList<AnnotationExpr>();
 
-				for (AnnotationExpr ae : annotations) {
-					if (!ae.getName().getName()
-							.equals(OVERRIDE_ANNOTATION.getName().getName())) {
-						newAnnotations.add(ae);
+					for (AnnotationExpr ae : annotations) {
+						if (!ae.getName()
+								.getName()
+								.equals(OVERRIDE_ANNOTATION.getName().getName())) {
+							newAnnotations.add(ae);
+						}
 					}
-				}
-				n.setAnnotations(newAnnotations);
+					n.setAnnotations(newAnnotations);
 
+				}
 			}
 
 			try {
