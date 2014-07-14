@@ -37,11 +37,14 @@ public class RefactoringRulesDictionary {
 	private TypeTable typeTable;
 	
 	private static Logger log = Logger.getLogger(RefactoringRulesDictionary.class);
+	
+	private ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
-	public RefactoringRulesDictionary(TypeTable typeTable) {
+	public RefactoringRulesDictionary(TypeTable typeTable, ClassLoader classLoader) {
 		refactoringRules = new LinkedList<MethodRefactoringRule>();
 
 		this.typeTable = typeTable;
+		this.classLoader = classLoader;
 	}
 
 	public MethodRefactoringRule getRefactoringRule(String scopeType,
@@ -251,8 +254,7 @@ public class RefactoringRulesDictionary {
 
 			Class<?> scopeClass;
 			try {
-				scopeClass = Class.forName(rule.getSourceScope(), false, Thread
-						.currentThread().getContextClassLoader());
+				scopeClass = Class.forName(rule.getSourceScope(), false, classLoader);
 			} catch (ClassNotFoundException e) {
 				throw new WalkModException("Invalid source class ["
 						+ rule.getSourceScope() + "] in the rule number "

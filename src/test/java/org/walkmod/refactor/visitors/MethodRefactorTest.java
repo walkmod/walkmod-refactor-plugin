@@ -138,6 +138,10 @@ public class MethodRefactorTest {
 		coi.setRefactoringConfigFile("src/test/resources/refactoring-methods-config.json");
 
 		Assert.assertEquals(2, coi.getRefactoringRules().size());
+		
+		coi.setConstantsConfigFile("src/test/resources/refactoring-constants-to-enum.json");
+		
+		Assert.assertTrue(true);
 	}
 
 }

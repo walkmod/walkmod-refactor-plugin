@@ -120,7 +120,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	private VariableTypeRefactor variableTypeRefactor;
 
-	private static Logger log = Logger.getLogger(MethodRefactor.class);
+	private static Logger LOG = Logger.getLogger(MethodRefactor.class);
 
 	private ClassLoader classLoader = null;
 
@@ -139,7 +139,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 			symbolTable = new SymbolTable();
 			typeTable = new TypeTable<VisitorContext>();
 			typeTable.setClassLoader(classLoader);
-			this.refactoringRules = new RefactoringRulesDictionary(typeTable);
+			this.refactoringRules = new RefactoringRulesDictionary(typeTable,
+					classLoader);
 			createdMethods.setTypeTable(typeTable);
 			removedMethods.setTypeTable(typeTable);
 			exprRefactor = new ExpressionRefactor(symbolTable);
@@ -157,6 +158,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 		// all types are resolved
 		typeTable.visit(unit, arg);
+		LOG.debug("Processing " + unit.getTypes().get(0).getName());
 		// typeTable.setCurrentPackage(packageName);
 		super.visit(unit, arg);
 
@@ -319,6 +321,21 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 						lastScope.getName().lastIndexOf(".") + 1);
 
 				className = parentName + "$" + declaration.getName();
+			}
+
+			// parametrized types are needed to know if a method has
+			// parametrized arguments or otherwise they are types.
+			List<TypeParameter> typeParams = declaration.getTypeParameters();
+			if (typeParams != null && !typeParams.isEmpty()) {
+				SymbolType thisType = symbolTable.getSymbol("this").getType();
+				List<SymbolType> parameterizedTypes = new LinkedList<SymbolType>();
+
+				for (TypeParameter tp : typeParams) {
+					SymbolType st = new SymbolType(tp.getName());
+					st.setTemplateVariable(true);
+					parameterizedTypes.add(st);
+				}
+				thisType.setParameterizedTypes(parameterizedTypes);
 			}
 
 			// adding all parent and accessible fields from superclasses
@@ -703,6 +720,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				// does exists some refactoring rule?
 				if (mrr != null) {
 
+					LOG.debug("refactoring [ " + n.toString() + " ]");
 					// changing the method's name
 					n.setName(mrr.getMethodName());
 
@@ -972,7 +990,6 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				}
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
 			throw new RuntimeException(e);
 		}
 
@@ -986,48 +1003,53 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		if (n.getScope() != null) {
 
 			n.getScope().accept(expressionTypeAnalyzer, arg);
-			String aux = ((SymbolType) arg
-					.remove(ExpressionTypeAnalyzer.TYPE_KEY)).getName();
 
-			aux = aux + "." + n.getField();
-			Collection<Expression> targetExpression = constantDictionary
-					.get(aux);
+			SymbolType scopeType = (SymbolType) arg
+					.remove(ExpressionTypeAnalyzer.TYPE_KEY);
+			if (scopeType != null) {
+				String aux = scopeType.getName();
 
-			if (!targetExpression.isEmpty()) {
+				aux = aux + "." + n.getField();
+				Collection<Expression> targetExpression = constantDictionary
+						.get(aux);
 
-				Expression appliedExpression = targetExpression.iterator()
-						.next();
+				if (!targetExpression.isEmpty()) {
 
-				arg.put(UPDATED_EXPRESSION_KEY, appliedExpression);
+					Expression appliedExpression = targetExpression.iterator()
+							.next();
 
-				if (constantDictionary.hasEnumTransformation(aux)) {
+					arg.put(UPDATED_EXPRESSION_KEY, appliedExpression);
 
-					if (appliedExpression instanceof FieldAccessExpr) {
+					if (constantDictionary.hasEnumTransformation(aux)) {
 
-						try {
-							ClassOrInterfaceType type = (ClassOrInterfaceType) ASTManager
-									.parse(ClassOrInterfaceType.class,
-											((FieldAccessExpr) appliedExpression)
-													.getScope().toString());
+						if (appliedExpression instanceof FieldAccessExpr) {
 
-							arg.put(APPLIED_CONSTANT_TRANSFORMATION_TYPE, type);
+							try {
+								ClassOrInterfaceType type = (ClassOrInterfaceType) ASTManager
+										.parse(ClassOrInterfaceType.class,
+												((FieldAccessExpr) appliedExpression)
+														.getScope().toString());
 
-						} catch (ParseException e) {
-							throw new WalkModException(e);
+								arg.put(APPLIED_CONSTANT_TRANSFORMATION_TYPE,
+										type);
+
+							} catch (ParseException e) {
+								throw new WalkModException(e);
+							}
+
 						}
-
 					}
-				}
 
-			} else {
+				} else {
 
-				n.getScope().accept(this, arg);
-				if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-					n.setScope((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+					n.getScope().accept(this, arg);
+					if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+						n.setScope((Expression) arg
+								.remove(UPDATED_EXPRESSION_KEY));
+					}
 				}
 			}
 		}
-
 	}
 
 	public void visit(SwitchStmt n, VisitorContext arg) {
@@ -1098,7 +1120,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					if (arg.get(UPDATED_STATEMENT_KEY) != null) {
 						stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
 					} else {
-						log.debug("The method " + s.toString() + " is removed");
+						LOG.debug("The method " + s.toString() + " is removed");
 						arg.remove(UPDATED_STATEMENT_KEY);
 					}
 				}
@@ -1150,11 +1172,11 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				}
 				setRefactoringRules(aux);
 			} else {
-				log.error("The refactoring config file ["
+				LOG.error("The refactoring config file ["
 						+ refactoringConfigFile + "] cannot be read");
 			}
 		} else {
-			log.error("The refactoring config file [" + refactoringConfigFile
+			LOG.error("The refactoring config file [" + refactoringConfigFile
 					+ "] does not exist");
 		}
 	}
@@ -1187,11 +1209,11 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				}
 				setRemovedMethods(removedMethods);
 			} else {
-				log.error("The refactoring config file for removed methods ["
+				LOG.error("The refactoring config file for removed methods ["
 						+ removedMethodsConfig + "] cannot be read");
 			}
 		} else {
-			log.error("The refactoring config file [" + removedMethodsConfig
+			LOG.error("The refactoring config file [" + removedMethodsConfig
 					+ "] does not exist");
 		}
 	}
@@ -1228,6 +1250,10 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
 	public void setConstantsConfigFile(String constantsConfigFile)
 			throws Exception {
+		if (constantsConfigFile == null) {
+			throw new WalkModException(
+					"The constansConfigFile cannot be setted null");
+		}
 		File file = new File(constantsConfigFile);
 
 		if (file.exists()) {
@@ -1251,16 +1277,19 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				}
 				setConstantTransformations(aux);
 			} else {
-				log.error("The constants config file [" + constantsConfigFile
+				LOG.error("The constants config file [" + constantsConfigFile
 						+ "] cannot be read");
 			}
 		} else {
-			log.error("The constants config file [" + constantsConfigFile
+			LOG.error("The constants config file [" + constantsConfigFile
 					+ "] does not exist");
 		}
 	}
 
 	public void setConstantTransformations(Map<String, String> transformations) {
+		if (constantDictionary == null) {
+			constantDictionary = new ConstantTransformationDictionary();
+		}
 		constantDictionary.addAll(transformations);
 	}
 
@@ -1271,7 +1300,10 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		SymbolType resolvedType = typeTable.valueOf(type);
 
 		for (VariableDeclarator var : n.getVars()) {
-
+			int arrayCount = var.getId().getArrayCount();
+			if (arrayCount > 0) {
+				resolvedType.setArrayCount(arrayCount);
+			}
 			symbolTable.insertSymbol(var.getId().getName(), resolvedType, n);
 		}
 		super.visit(n, arg);
@@ -1293,83 +1325,113 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		if (n.getParameters() != null) {
 			args = new String[n.getParameters().size()];
 		}
+		boolean hasParameterizedTypes = false;
 
-		List<Parameter> parameters = n.getParameters();
-		if (parameters != null) {
-			int i = 0;
-			for (Parameter parameter : parameters) {
-
-				Type type = parameter.getType();
-				try {
-					Class<?> resolvedClass = typeTable.loadClass(type);
-					args[i] = resolvedClass.getName();
-
-				} catch (ClassNotFoundException e) {
-					throw new WalkModException(e);
-				}
-
-				i++;
-			}
-		}
-
-		// if a deteled method contains the overwrite annotation, the annotation
-		// is removed
-		List<AnnotationExpr> annotations = n.getAnnotations();
-
-		if (annotations != null) {
-			List<AnnotationExpr> newAnnotations = new LinkedList<AnnotationExpr>();
-
-			for (AnnotationExpr ae : annotations) {
-				if (!ae.getName().getName()
-						.equals(OVERRIDE_ANNOTATION.getName().getName())) {
-					newAnnotations.add(ae);
-				}
-			}
-			n.setAnnotations(newAnnotations);
-
-		}
-
-		try {
-
-			// changing the method header
-			MethodRefactoringRule mrr = refactoringRules.getRefactoringRule(
-					thisType.getName(), n.getName(), args);
-			if (mrr != null) {
-				n.setName(mrr.getMethodName());
-				java.lang.reflect.Type resultType = mrr.getResultType();
-				Type type;
-				if (resultType != null) {
-					if (resultType instanceof Class) {
-						type = new ClassOrInterfaceType(
-								((Class<?>) resultType).getName());
-					} else {
-						throw new WalkModException(
-								"There is a method refactoring rule without an instantiable result type. This type is : "
-										+ resultType.toString());
-
+		//checking if the method contains some parameter whose type is a template variable instead of being a type.
+		List<SymbolType> parameterizedTypes = thisType.getParameterizedTypes();
+		if (parameterizedTypes != null && !parameterizedTypes.isEmpty()) {
+			List<Parameter> parameters = n.getParameters();
+			if (parameters != null) {
+				Iterator<Parameter> it = parameters.iterator();
+				
+				while(it.hasNext() && ! hasParameterizedTypes){
+					Parameter parameter = it.next();
+					Type type = parameter.getType();
+					
+					if (type instanceof ClassOrInterfaceType){
+						String name = ((ClassOrInterfaceType)type).getName();
+						hasParameterizedTypes = parameterizedTypes.contains(new SymbolType(name));
+					}					
+					else if(type instanceof ReferenceType){
+						type = ((ReferenceType)type).getType();
+						if(type instanceof ClassOrInterfaceType){
+							String name = ((ClassOrInterfaceType)type).getName();
+							hasParameterizedTypes = parameterizedTypes.contains(new SymbolType(name));
+						}
 					}
-					n.setType(type);
 				}
 			}
-		} catch (ClassNotFoundException e) {
-			throw new WalkModException(e);
-		} catch (SecurityException e) {
-			throw new WalkModException(e);
 		}
+		if (!hasParameterizedTypes) {
+			List<Parameter> parameters = n.getParameters();
+			if (parameters != null) {
+				int i = 0;
+				for (Parameter parameter : parameters) {
 
-		symbolTable.pushScope();
-		if (n.getParameters() != null) {
-			for (Parameter p : n.getParameters()) {
-				Type type = p.getType();
+					Type type = parameter.getType();
+					try {
+						Class<?> resolvedClass = typeTable.loadClass(type);
+						args[i] = resolvedClass.getName();
 
-				symbolTable.insertSymbol(p.getId().getName(),
-						typeTable.valueOf(type), p);
+					} catch (ClassNotFoundException e) {
+						throw new WalkModException(e);
+					}
+
+					i++;
+				}
+			}
+
+			// if a deteled method contains the overwrite annotation, the
+			// annotation
+			// is removed
+			List<AnnotationExpr> annotations = n.getAnnotations();
+
+			if (annotations != null) {
+				List<AnnotationExpr> newAnnotations = new LinkedList<AnnotationExpr>();
+
+				for (AnnotationExpr ae : annotations) {
+					if (!ae.getName().getName()
+							.equals(OVERRIDE_ANNOTATION.getName().getName())) {
+						newAnnotations.add(ae);
+					}
+				}
+				n.setAnnotations(newAnnotations);
 
 			}
-		}
-		super.visit(n, arg);
-		symbolTable.popScope();
 
+			try {
+
+				// changing the method header
+				MethodRefactoringRule mrr = refactoringRules
+						.getRefactoringRule(thisType.getName(), n.getName(),
+								args);
+				if (mrr != null) {
+					LOG.debug("refactoring [" + n.toString() + "]");
+					n.setName(mrr.getMethodName());
+					java.lang.reflect.Type resultType = mrr.getResultType();
+					Type type;
+					if (resultType != null) {
+						if (resultType instanceof Class) {
+							type = new ClassOrInterfaceType(
+									((Class<?>) resultType).getName());
+						} else {
+							throw new WalkModException(
+									"There is a method refactoring rule without an instantiable result type. This type is : "
+											+ resultType.toString());
+
+						}
+						n.setType(type);
+					}
+				}
+			} catch (ClassNotFoundException e) {
+				throw new WalkModException(e);
+			} catch (SecurityException e) {
+				throw new WalkModException(e);
+			}
+
+			symbolTable.pushScope();
+			if (n.getParameters() != null) {
+				for (Parameter p : n.getParameters()) {
+					Type type = p.getType();
+
+					symbolTable.insertSymbol(p.getId().getName(),
+							typeTable.valueOf(type), p);
+
+				}
+			}
+			super.visit(n, arg);
+			symbolTable.popScope();
+		}
 	}
 
 	@Override
@@ -1419,7 +1481,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					if (arg.get(UPDATED_STATEMENT_KEY) != null) {
 						stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
 					} else {
-						log.debug("The method " + s.toString() + " is removed");
+						LOG.debug("The method " + s.toString() + " is removed");
 						arg.remove(UPDATED_STATEMENT_KEY);
 					}
 				}
@@ -1498,6 +1560,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 		} else {
 			objectScope = new SymbolType(typeTable.getFullName(n.getType()));
 		}
+
 		if (n.getTypeArgs() != null) {
 			for (Type t : n.getTypeArgs()) {
 				t.accept(this, arg);
@@ -1552,7 +1615,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					objectScope.getName(), n.getType().getName(), argStr);
 
 			if (mrr != null) {
-
+				LOG.debug("refactoring [" + n.toString() + "]");
 				// changing the constructor's name
 				String newConstructorName = mrr.getMethodName();
 				if (mrr.getScope() != null) {

@@ -41,8 +41,8 @@ import org.walkmod.javalang.ast.stmt.Statement;
 import org.walkmod.javalang.ast.type.Type;
 import org.walkmod.javalang.compiler.Symbol;
 import org.walkmod.javalang.compiler.SymbolTable;
-import org.walkmod.javalang.compiler.Types;
 import org.walkmod.javalang.compiler.TypeTable;
+import org.walkmod.javalang.compiler.Types;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
 import org.walkmod.walkers.VisitorContext;
 
@@ -281,7 +281,7 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 							}
 
 							ExpressionStmt constructorASTExpr = (ExpressionStmt) ASTManager
-									.parse(ExpressionStmt.class, constructorStringExpr);
+									.parse(Statement.class, constructorStringExpr);
 
 							if (!arg.containsKey(PREVIOUS_REQUIRED_STATEMENTS_KEY)) {
 								arg.put(PREVIOUS_REQUIRED_STATEMENTS_KEY,
