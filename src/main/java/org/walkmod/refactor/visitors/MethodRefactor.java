@@ -600,13 +600,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 			if (n.getScope() == null) {
 				scopeType = symbolTable.getType("this");
 			} else {
-				// store the previous context
-				MethodCallExpr prev = (MethodCallExpr) arg
-						.get(ExpressionTypeAnalyzer.REQUIRED_METHOD);
-
-				// update context
-				arg.put(ExpressionTypeAnalyzer.REQUIRED_METHOD, n);
-
+				
 				// Recursive call
 				n.getScope().accept(expressionTypeAnalyzer, arg);
 
@@ -614,14 +608,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 				scopeType = (SymbolType) arg
 						.remove(ExpressionTypeAnalyzer.TYPE_KEY);
 
-				// removing scope context
-				arg.remove(ExpressionTypeAnalyzer.REQUIRED_METHOD);
-
-				if (prev != null) {
-					// updating the previpus context
-					arg.put(ExpressionTypeAnalyzer.REQUIRED_METHOD, prev);
-				}
-
+				
 				/**
 				 * creating a valid context. We cannot use assign variables as
 				 * for inner operations as an IO parameter. That is beacuse it

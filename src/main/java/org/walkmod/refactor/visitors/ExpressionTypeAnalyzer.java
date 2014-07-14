@@ -57,8 +57,8 @@ import org.walkmod.javalang.ast.expr.SuperExpr;
 import org.walkmod.javalang.ast.expr.ThisExpr;
 import org.walkmod.javalang.compiler.SymbolTable;
 import org.walkmod.javalang.compiler.SymbolType;
-import org.walkmod.javalang.compiler.Types;
 import org.walkmod.javalang.compiler.TypeTable;
+import org.walkmod.javalang.compiler.Types;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
 import org.walkmod.refactor.exceptions.InvalidTypeException;
 import org.walkmod.walkers.VisitorContext;
@@ -66,16 +66,6 @@ import org.walkmod.walkers.VisitorContext;
 public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	public static final String TYPE_KEY = "type_key";
-
-	/**
-	 * Metode que ha de tenir el tipus de retorn
-	 */
-	public static final String REQUIRED_METHOD = "required_method";
-
-	/**
-	 * Atribut que ha de tenir el tipus de retorn
-	 */
-	public static final String REQUIRED_ATTRIBUTE = "required_attribute";
 
 	private TypeTable typeTable;
 
@@ -174,18 +164,8 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 	@Override
 	public void visit(FieldAccessExpr n, VisitorContext arg) {
 
-		arg.put(REQUIRED_ATTRIBUTE, n);
-
-		MethodCallExpr requiredMethod = (MethodCallExpr) arg
-				.remove(REQUIRED_METHOD);
-
+	
 		n.getScope().accept(this, arg);
-
-		arg.remove(REQUIRED_ATTRIBUTE);
-
-		if (requiredMethod != null) {
-			arg.put(REQUIRED_METHOD, requiredMethod);
-		}
 
 		SymbolType scopeType = (SymbolType) arg.remove(TYPE_KEY);
 
@@ -369,19 +349,13 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 		try {
 			SymbolType scope;
 
-			MethodCallExpr antRequiredMethod = (MethodCallExpr) arg
-					.remove(ExpressionTypeAnalyzer.REQUIRED_METHOD);
-
-			FieldAccessExpr faccess = (FieldAccessExpr) arg
-					.remove(REQUIRED_ATTRIBUTE);
+		
 
 			if (n.getScope() != null) {
 
-				arg.put(ExpressionTypeAnalyzer.REQUIRED_METHOD, n);
-
+				
 				n.getScope().accept(this, arg);
 
-				arg.remove(ExpressionTypeAnalyzer.REQUIRED_METHOD);
 
 				scope = (SymbolType) arg.remove(TYPE_KEY);
 
@@ -406,18 +380,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 				}
 			}
 
-			if (antRequiredMethod != null) {
-				arg.put(REQUIRED_METHOD, antRequiredMethod);
-			}
-			if (faccess != null) {
-				arg.put(REQUIRED_ATTRIBUTE, faccess);
-			}
-
-			MethodCallExpr requiredMethod = (MethodCallExpr) arg
-					.remove(REQUIRED_METHOD);
-
-			FieldAccessExpr requiredField = (FieldAccessExpr) arg
-					.remove(REQUIRED_ATTRIBUTE);
+			
 
 			Map<String, SymbolType> typeMapping = new HashMap<String, SymbolType>();
 
@@ -440,7 +403,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 			}
 
 			Method method = getMethod(scope, n.getName(), typeArgs,
-					n.getArgs(), requiredMethod, requiredField, arg,
+					n.getArgs(),  arg,
 					typeMapping);
 
 			Type[] types = method.getGenericParameterTypes();
@@ -598,7 +561,6 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 
 	public Method getMethod(Class<?> clazz, String methodName,
 			Class<?>[] typeArgs, List<Expression> argumentValues,
-			MethodCallExpr requiredMethod, FieldAccessExpr requiredField,
 			VisitorContext arg, Map<String, SymbolType> typeMapping,
 			boolean throwException) throws SecurityException,
 			NoSuchMethodException, ClassNotFoundException, InvalidTypeException {
@@ -612,20 +574,20 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 			if (clazz.isMemberClass()) {
 
 				result = getMethod(clazz.getDeclaringClass(), methodName,
-						typeArgs, argumentValues, null, null, arg, typeMapping,
+						typeArgs, argumentValues, arg, typeMapping,
 						false);
 
 			} else if (clazz.isAnonymousClass()) {
 
 				result = getMethod(clazz.getEnclosingClass(), methodName,
-						typeArgs, argumentValues, null, null, arg, typeMapping,
+						typeArgs, argumentValues,  arg, typeMapping,
 						false);
 			}
 			if (result == null) {
 				Class<?> superClass = clazz.getSuperclass();
 				if (superClass != null) {
 					result = getMethod(superClass, methodName, typeArgs,
-							argumentValues, null, null, arg, typeMapping, false);
+							argumentValues, arg, typeMapping, false);
 				}
 
 				if (result == null) {
@@ -638,14 +600,14 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 									types[i], typeMapping));
 
 							result = getMethod(type, methodName, typeArgs,
-									argumentValues, null, null, arg,
+									argumentValues,  arg,
 									typeMapping, false);
 						}
 
 					}
 					if (result == null && clazz.isInterface()) {
 						result = getMethod(Object.class, methodName, typeArgs,
-								argumentValues, null, null, arg, typeMapping,
+								argumentValues,  arg, typeMapping,
 								false);
 					}
 				}
@@ -671,14 +633,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 								// symbolTable. These are found by Java
 								// introspection.
 			Class<?>[] typeArgs, // java types of the argument expressions
-			List<Expression> argumentValues, MethodCallExpr requiredMethod, // required
-																			// method
-																			// into
-																			// the
-																			// return
-																			// type
-			FieldAccessExpr requiredField, // required field into the return
-											// type
+			List<Expression> argumentValues, 
 			VisitorContext arg, // context
 			Map<String, SymbolType> typeMapping // mapping for Java Generics
 												// applied
@@ -689,7 +644,7 @@ public class ExpressionTypeAnalyzer extends VoidVisitorAdapter<VisitorContext> {
 		Class<?> clazz = typeTable.loadClass(scope);
 
 		return getMethod(clazz, methodName, typeArgs, argumentValues,
-				requiredMethod, requiredField, arg, typeMapping, true);
+			 arg, typeMapping, true);
 
 	}
 

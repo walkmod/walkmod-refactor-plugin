@@ -26,7 +26,7 @@ public class ExpressionTypeAnalyzerTest {
 
 		List<String> aux = new LinkedList<String>();
 
-		Method m = eta.getMethod(aux.iterator().getClass(), "next", null, null,
+		Method m = eta.getMethod(aux.iterator().getClass(), "next", 
 				null, null, new VisitorContext(),
 				new HashMap<String, SymbolType>(), true);
 
@@ -47,7 +47,7 @@ public class ExpressionTypeAnalyzerTest {
 		tm.put("E", new SymbolType("java.lang.String"));
 
 		Method m = eta.getMethod(aux.iterator().getClass(), "next", null, null,
-				null, null, new VisitorContext(), tm, true);
+				 new VisitorContext(), tm, true);
 
 		Assert.assertEquals("java.util.LinkedList$ListItr", m
 				.getDeclaringClass().getName());
