@@ -1,4 +1,96 @@
-javalang-refactor
-=================
+walkmod-refactor-plugin
+=======================
+Raquel Pau <raquelpau@gmail.com>
 
-Refactor utilities for Java code
+This is a walkmod plugin to support apply refactorings (mainly for migrations) in Java source files. You specify 
+refactoring rules by means json files to change method calls or the name of referenced types.
+
+One walkmod is executed, you can upgrade you maven dependency and check if the project compiles :)
+
+== Requirements
+
+- https://github.com/rpau/walkmod-maven-plugin[walkmod-maven-plugin] : to load you classpath to infer which expressions must be refactorized
+- Execute `mvn install` in your project.
+- Create your own refactoring rules
+
+== Refactoring rules
+
+=== Class refactoring rules
+
+You need to create a json file with the equivalences between the old declared types and the new ones that need to be used.
+
+This is a simple example created for a migration from jdex (a graph database) to dex-java for a major update.
+
+----
+{
+"edu.upc.dama.dex.core.DEX" : "com.sparsity.dex.gdb.Dex",
+"edu.upc.dama.dex.core.DEX.Config" : "com.sparsity.dex.gdb.DexConfig",
+"edu.upc.dama.dex.core.GraphPool" : "com.sparsity.dex.gdb.Database",
+"edu.upc.dama.dex.core.GraphPool.Statistics" : "com.sparsity.dex.gdb.DatabaseStatistics",
+"edu.upc.dama.dex.core.Session" : "com.sparsity.dex.gdb.Session",
+"edu.upc.dama.dex.core.Graph" : "com.sparsity.dex.gdb.Graph",
+"edu.upc.dama.dex.core.DbGraph" : "com.sparsity.dex.gdb.Graph",
+"edu.upc.dama.dex.core.RGraph" : "com.sparsity.dex.gdb.Graph",
+"edu.upc.dama.dex.core.Graph.TypeData" : "com.sparsity.dex.gdb.Type",
+"edu.upc.dama.dex.core.Graph.AttributeData" : "com.sparsity.dex.gdb.Attribute",
+"edu.upc.dama.dex.core.Graph.AttributeStats" : "com.sparsity.dex.gdb.AttributeStatistics",
+"edu.upc.dama.dex.core.Objects" : "com.sparsity.dex.gdb.Objects",
+"edu.upc.dama.dex.core.Objects.Iterator" : "com.sparsity.dex.gdb.ObjectsIterator",
+"edu.upc.dama.dex.core.Value" : "com.sparsity.dex.gdb.Value",
+"edu.upc.dama.dex.core.Values" : "com.sparsity.dex.gdb.Values",
+"edu.upc.dama.dex.core.TextStream" : "com.sparsity.dex.gdb.TextStream",
+"edu.upc.dama.dex.core.TextStream.TextReader" : "com.sparsity.dex.gdb.TextStream",
+"edu.upc.dama.dex.core.TextStream.TextWriter" : "com.sparsity.dex.gdb.TextStream",
+"edu.upc.dama.dex.core.DEX.SystemStatistics" : "com.sparsity.dex.gdb.PlatformStatistics",
+"edu.upc.dama.dex.core.Export" : "edu.upc.dama.dex.gdb.ExportManager"
+}
+----
+
+=== Method refactoring rules
+
+You need to create a json file with a given object whose all its keys are the old method definitions and the values are the new definitions.
+You can manage a method renaming, changes over the arguments order and types and even the requivalent result expression. 
+
+This is a simple example created for a migration from jdex (a graph database) to dex-java for a major update.  
+----
+{
+ "edu.upc.dama.dex.core.DEX:create(java.io.File path)" : "com.sparsity.dex.gdb.Dex:create(path.getPath())",
+ "edu.upc.dama.dex.core.DEX:create(java.io.File path; java.lang.String alias)" : "com.sparsity.dex.gdb.Dex:create(path.getPath(); alias)",
+ "edu.upc.dama.dex.core.DEX:isOpen()" : "com.sparsity.dex.gdb.Dex:isClosed():!result",
+ ...
+}
+----
+
+== Usage
+
+walkmod-refactor-plugin is a default plugin loaded via  http://www.walkmod.com[walkmod]. So, you just need 
+to add the plugin in your `${PROJECT}/walkmod.xml` file when you wants upgrade the used version without 
+downloading walkmod again.  
+
+----
+<!DOCTYPE walkmod PUBLIC "-//WALKMOD//DTD"  "http://www.walkmod.com/dtd/walkmod-1.0.dtd" >
+<walkmod>
+  <plugins>
+    <plugin groupId="org.walkmod" artifactId="walkmod-maven-plugin" version="1.0" />
+    <plugin groupId="org.walkmod" artifactId="walkmod-refactor-plugin" version="1.0" />
+  </plugins>
+  <conf-providers>
+    <conf-provider type="walkmod:commons:maven"></conf-provider>
+  </conf-providers>
+  <chain name="main-chain">	
+    <transformation type="walkmod:commons:method-refactor">
+      <param name="refactoringConfigFile">src/conf/refactoring-methods.json</param>
+    </transformation>
+    <transformation type="walkmod:commons:class-refactor">
+      <param name="refactoringConfigFile">src/conf/refactoring-classes.json</param>
+    </transformation>
+  </chain>	
+</walkmod>
+----
+
+
+== Contributing
+
+If you want to hack on this, fork it, improve it and send me a pull request.
+
+To get started using it, just clone it and call mvn install. 
