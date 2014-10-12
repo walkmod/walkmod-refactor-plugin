@@ -2,14 +2,18 @@ walkmod-refactor-plugin
 =======================
 Raquel Pau <raquelpau@gmail.com>
 
-This is a walkmod plugin to support apply refactorings (mainly for migrations) in Java source files. You specify 
-refactoring rules by means json files to change method calls or the name of referenced types.
+This is a walkmod plugin to support refactorings (mainly for migrations) in Java source files. For example, if you need to upgrade 
+an specific java library and some methods change their signature, others become deprecated and some classes change their name too; you can 
+rewrite automatically your code with this walkmod plugin. 
 
-One walkmod is executed, you can upgrade you maven dependency and check if the project compiles :)
+Refactoring rules are specified in json files. So, you just need to add two code transformations in your `walkmod.xml`.
+file to allow walkmod change all code references.
+
+Once walkmod is executed, you can upgrade you maven dependency and check if the project compiles :)
 
 == Requirements
 
-- https://github.com/rpau/walkmod-maven-plugin[walkmod-maven-plugin] : to load you classpath to infer which expressions must be refactorized
+- Add the https://github.com/rpau/walkmod-maven-plugin[walkmod-maven-plugin] into your `walkmod.xml`. It is necessary to allow walkmod discover your classpath.
 - Execute `mvn install` in your project.
 - Create your own refactoring rules
 
