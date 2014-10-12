@@ -52,7 +52,7 @@ old method declaration of a Java class, and their values the mapping with the ne
 {
  "foo.Bar:execute()" : "foo.Bar:run()",
  "foo.Bar:open(java.io.File file)" : "foo.Bar:open(file.getPath())",
- "foo.Bar:open(java.io.File file; java.lang.Boolean append)" : "foo.Bar:open(file.getPath(); append),
+ "foo.Bar:open(java.io.File file; java.lang.Boolean append)" : "foo.Bar:open(file.getPath(); append)",
  "foo.Resource:isOpen()" : "foo.Resource:isClosed():!result"
 }
 ```
