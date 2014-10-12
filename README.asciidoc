@@ -43,7 +43,7 @@ Method refactoring rules support three scenarios:
 the whole class name and an alias for each argument (e.g `foo.Bar:open(java.io.File file)`). Then, you could use the alias in expressions if 
 you can derive the new argument type of these methods (e.g `foo.Bar:open(file.getPath())`). The character separator between arguments is the `;`.
 3. **Result Rules**: for those methods that have changed their result type. There is a keyword called `result` to specify how the new 
-method call must be transformed into a new expression to ensure the code follows the same workflow. For example:  `foo.Resource:isOpen()` => foo.Resource:isClosed():!result
+method call must be transformed into a new expression to ensure the code follows the same workflow. For example:  `foo.Resource:isOpen()` => `foo.Resource:isClosed():!result`
 
 To specify method refactoring rules, you need to create a json file with a simple json oblect, whose field names are the 
 old method declaration of a Java class, and their values the mapping with the new declaration. Let's see the whole example.
@@ -63,7 +63,7 @@ walkmod-refactor-plugin is a default plugin loaded via  http://www.walkmod.com[w
 to add the plugin in your `${PROJECT}/walkmod.xml` file when you wants upgrade the used version without 
 downloading walkmod again.  
 
-----
+```XML
 <!DOCTYPE walkmod PUBLIC "-//WALKMOD//DTD"  "http://www.walkmod.com/dtd/walkmod-1.0.dtd" >
 <walkmod>
   <plugins>
@@ -82,7 +82,7 @@ downloading walkmod again.
     </transformation>
   </chain>	
 </walkmod>
-----
+```
 
 
 == Contributing
