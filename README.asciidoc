@@ -2,9 +2,9 @@ walkmod-refactor-plugin
 =======================
 Raquel Pau <raquelpau@gmail.com>
 
-This is a walkmod plugin to support refactorings (mainly for migrations) in Java source files. For example, if you need to upgrade 
-an specific java library and some methods change their signature, others become deprecated and some classes change their name too; you can 
-rewrite automatically your code with this walkmod plugin. 
+This is a walkmod plugin to support refactorings rules (mainly for migrations) in Java source files. For example, if you need to upgrade 
+an specific java library and some methods change their names, arguments..; others become deprecated and some classes change their name too.  In this situation,
+You can spend a lot of hours changing those parts of code that do not compile with the new version or rewrite automatically your code with this walkmod plugin :). 
 
 Refactoring rules are specified in json files. So, you just need to add two code transformations in your `walkmod.xml`.
 file to allow walkmod change all code references.
@@ -19,51 +19,43 @@ Once walkmod is executed, you can upgrade you maven dependency and check if the 
 
 == Refactoring rules
 
+This plugin support two types of refactoring rules: **class refactoring rules** to rewrite those references of classes whose name has changed; and 
+**method refactoring rules** to rewrite those method calls that have a different name or their arguments have changed.
+
 === Class refactoring rules
 
-You need to create a json file with the equivalences between the old declared types and the new ones that need to be used.
+Class refactoring rules are renaming rules for Java classes. To specify class refactoring rules, you need to create a json file, with a simple
+json oblect, whose field names are the old names of a Java class, and their values the new class names. 
 
-This is a simple example created for a migration from jdex (a graph database) to dex-java for a major update.
-
-----
+For example, imagine you are using a Java library (Maven dependency), which contains a class called `foo.Bar` and you need to upgrade 
+this library to the newest version, where the class `foo.Bar` has been renamed to `foo.BarDAO`. You need to specify this rule in a 
+```json
 {
-"edu.upc.dama.dex.core.DEX" : "com.sparsity.dex.gdb.Dex",
-"edu.upc.dama.dex.core.DEX.Config" : "com.sparsity.dex.gdb.DexConfig",
-"edu.upc.dama.dex.core.GraphPool" : "com.sparsity.dex.gdb.Database",
-"edu.upc.dama.dex.core.GraphPool.Statistics" : "com.sparsity.dex.gdb.DatabaseStatistics",
-"edu.upc.dama.dex.core.Session" : "com.sparsity.dex.gdb.Session",
-"edu.upc.dama.dex.core.Graph" : "com.sparsity.dex.gdb.Graph",
-"edu.upc.dama.dex.core.DbGraph" : "com.sparsity.dex.gdb.Graph",
-"edu.upc.dama.dex.core.RGraph" : "com.sparsity.dex.gdb.Graph",
-"edu.upc.dama.dex.core.Graph.TypeData" : "com.sparsity.dex.gdb.Type",
-"edu.upc.dama.dex.core.Graph.AttributeData" : "com.sparsity.dex.gdb.Attribute",
-"edu.upc.dama.dex.core.Graph.AttributeStats" : "com.sparsity.dex.gdb.AttributeStatistics",
-"edu.upc.dama.dex.core.Objects" : "com.sparsity.dex.gdb.Objects",
-"edu.upc.dama.dex.core.Objects.Iterator" : "com.sparsity.dex.gdb.ObjectsIterator",
-"edu.upc.dama.dex.core.Value" : "com.sparsity.dex.gdb.Value",
-"edu.upc.dama.dex.core.Values" : "com.sparsity.dex.gdb.Values",
-"edu.upc.dama.dex.core.TextStream" : "com.sparsity.dex.gdb.TextStream",
-"edu.upc.dama.dex.core.TextStream.TextReader" : "com.sparsity.dex.gdb.TextStream",
-"edu.upc.dama.dex.core.TextStream.TextWriter" : "com.sparsity.dex.gdb.TextStream",
-"edu.upc.dama.dex.core.DEX.SystemStatistics" : "com.sparsity.dex.gdb.PlatformStatistics",
-"edu.upc.dama.dex.core.Export" : "edu.upc.dama.dex.gdb.ExportManager"
+  "foo.Bar": "foo.BarDAO"
 }
-----
-
+```
 === Method refactoring rules
 
-You need to create a json file with a given object whose all its keys are the old method definitions and the values are the new definitions.
-You can manage a method renaming, changes over the arguments order and types and even the requivalent result expression. 
+Method refactoring rules support three scenarios:
 
-This is a simple example created for a migration from jdex (a graph database) to dex-java for a major update.  
-----
+1. **Method Renaming**: For those methods that have changed their name. Example: `foo.Bar:execute() => foo.Bar:run()`
+2. **Argument Rules**: For those methods that have changed their arguments (type, order o quantity). For this type of rules, you need to specify 
+the whole class name and an alias for each argument (e.g `foo.Bar:open(java.io.File file)`). Then, you could use the alias in expressions if 
+you can derive the new argument type of these methods (e.g `foo.Bar:open(file.getPath())`). The character separator between arguments is the `;`.
+3. **Result Rules**: for those methods that have changed their result type. There is a keyword called `result` to specify how the new 
+method call must be transformed into a new expression to ensure the code follows the same workflow. For example:  `foo.Resource:isOpen()` => foo.Resource:isClosed():!result
+
+To specify method refactoring rules, you need to create a json file with a simple json oblect, whose field names are the 
+old method declaration of a Java class, and their values the mapping with the new declaration. Let's see the whole example.
+
+```json
 {
- "edu.upc.dama.dex.core.DEX:create(java.io.File path)" : "com.sparsity.dex.gdb.Dex:create(path.getPath())",
- "edu.upc.dama.dex.core.DEX:create(java.io.File path; java.lang.String alias)" : "com.sparsity.dex.gdb.Dex:create(path.getPath(); alias)",
- "edu.upc.dama.dex.core.DEX:isOpen()" : "com.sparsity.dex.gdb.Dex:isClosed():!result",
- ...
+ "foo.Bar:execute()" : "foo.Bar:run()",
+ "foo.Bar:open(java.io.File file)" : "foo.Bar:open(file.getPath())",
+ "foo.Bar:open(java.io.File file; java.lang.Boolean append)" : "foo.Bar:open(file.getPath(); append)
+ "foo.Resource:isOpen()" : "foo.Resource:isClosed():!result"
 }
-----
+```
 
 == Usage
 
