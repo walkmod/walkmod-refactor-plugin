@@ -4,18 +4,21 @@ Raquel Pau <raquelpau@gmail.com>
 
 image:https://travis-ci.org/rpau/walkmod-refactor-plugin.svg?branch=master["Build Status", link="https://travis-ci.org/rpau/walkmod-refactor-plugin"]
 
-This is a walkmod plugin to support refactorings rules (mainly for migrations) in Java source files. For example, if you need to upgrade 
-an specific java library and some methods change their names, arguments..; others become deprecated and some classes change their name too.  In this situation,
-You can spend a lot of hours changing those parts of code that do not compile with the new version or rewrite automatically your code with this walkmod plugin :). 
+This is a http://www.walkmod.com[walkmod] plugin to support refactorings rules (mainly for migrations) in Java source files. 
 
-Refactoring rules are specified in json files. So, you just need to add two code transformations in your `walkmod.xml`.
-file to allow walkmod change all code references.
+This plugin is specially useful when you need to upgrade a project dependency (java library), and in the new version, you have found that some methods have changed their names, arguments..; others become deprecated and some classes have been renamed, too.  
+In this situation, you can spend a lot of time changing those parts of code that stop to compile or update automatically your code with this walkmod plugin :). 
 
-Once walkmod is executed, you can upgrade you maven dependency and check if the project compiles :)
+This walkmod plugins reads all your code expressions and rewrite them according the new API of the updraded library. These code expressions are 
+rewriten according a set of refactoring rules.   
+
+
+
+
 
 == Requirements
 
-- Add the https://github.com/rpau/walkmod-maven-plugin[walkmod-maven-plugin] into your `walkmod.xml`. It is necessary to allow walkmod discover your classpath.
+- 
 - Execute `mvn install` in your project.
 - Create your own refactoring rules
 
@@ -61,9 +64,17 @@ old method declaration of a Java class, and their values the mapping with the ne
 
 == Usage
 
-walkmod-refactor-plugin is a default plugin loaded via  http://www.walkmod.com[walkmod]. So, you just need 
-to add the plugin in your `${PROJECT}/walkmod.xml` file when you wants upgrade the used version without 
-downloading walkmod again.  
+1. First of all, compile your project using maven. So, type:
+
+`mvn install`
+
+2. Add the https://github.com/rpau/walkmod-maven-plugin[walkmod-maven-plugin] into your `walkmod.xml` as a plugin. 
+This plugin will interprete your classpath accoding your `pom.xml`.
+
+3. Add https://github.com/rpau/walkmod-refactor-plugin[walkmod-refactor-plugin] into your `walkmod.xml` as a plugin.
+
+4. Add the transformations `walkmod:commons:method-refactor` and `walkmod:commons:class-refactor` into your  `walkmod.xml` and 
+set your refactoring configurations.
 
 ```XML
 <!DOCTYPE walkmod PUBLIC "-//WALKMOD//DTD"  "http://www.walkmod.com/dtd/walkmod-1.0.dtd" >
@@ -86,9 +97,15 @@ downloading walkmod again.
 </walkmod>
 ```
 
+5. Type and execute:
+
+`walkmod apply`
+
+6. Now, you can upgrade you maven dependency and check if the project compiles :)
+
 
 == Contributing
 
 If you want to hack on this, fork it, improve it and send me a pull request.
 
-To get started using it, just clone it and call mvn install. 
+To get started using it, just clone it and call `mvn install`. 
