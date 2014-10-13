@@ -13,15 +13,6 @@ This walkmod plugins reads all your code expressions and rewrite them according 
 rewriten according a set of refactoring rules.   
 
 
-
-
-
-== Requirements
-
-- 
-- Execute `mvn install` in your project.
-- Create your own refactoring rules
-
 == Refactoring rules
 
 This plugin support two types of refactoring rules: **class refactoring rules** to rewrite those references of classes whose name has changed; and 
@@ -64,9 +55,7 @@ old method declaration of a Java class, and their values the mapping with the ne
 
 == Usage
 
-1. First of all, compile your project using maven. So, type:
-
-`mvn install`
+1. First of all, compile your project using maven. So, execute `mvn install` in your shell. 
 
 2. Add the https://github.com/rpau/walkmod-maven-plugin[walkmod-maven-plugin] into your `walkmod.xml` as a plugin. 
 This plugin will interprete your classpath accoding your `pom.xml`.
@@ -97,9 +86,7 @@ set your refactoring configurations.
 </walkmod>
 ```
 
-5. Type and execute:
-
-`walkmod apply`
+5. Type and execute `walkmod apply` in your shell from your project directory.
 
 6. Now, you can upgrade you maven dependency and check if the project compiles :)
 
