@@ -31,11 +31,12 @@ public class MethodRefactorTest {
 	private static String COMPILATION_DIR = "./src/test/resources/tmp/classes";
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public void compile(File... files) throws IOException {
+	public boolean compile(File... files) throws IOException {
 		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 		List<String> optionList = new ArrayList<String>();
 		File tmp = new File(COMPILATION_DIR);
-		if (tmp.mkdirs() || tmp.exists()) {
+		boolean result = (tmp.mkdirs() || tmp.exists()) && tmp.canWrite();
+		if (result) {
 			optionList.addAll(Arrays.asList("-d", tmp.getAbsolutePath()));
 			StandardJavaFileManager sjfm = compiler.getStandardFileManager(
 					null, null, null);
@@ -45,6 +46,7 @@ public class MethodRefactorTest {
 			task.call();
 			sjfm.close();
 		}
+		return result;
 	}
 
 	public CompilationUnit getRefactoredSource(String code,
@@ -53,7 +55,7 @@ public class MethodRefactorTest {
 		CompilationUnit cu = ASTManager.parse(code);
 		File srcDir = new File(TEST_DIR, "src");
 
-		if (srcDir.mkdirs() || srcDir.exists()) {
+		if ((srcDir.mkdirs() || srcDir.exists()) && srcDir.canWrite()) {
 
 			File tmpClass = new File(TEST_DIR, "Foo.java");
 			FileWriter fw = new FileWriter(tmpClass);
@@ -61,22 +63,27 @@ public class MethodRefactorTest {
 			fw.flush();
 			fw.close();
 
-			compile(tmpClass);
+			if (compile(tmpClass)) {
 
-			File aux = new File(COMPILATION_DIR);
+				File aux = new File(COMPILATION_DIR);
 
-			ClassLoader cl = new URLClassLoader(
-					new URL[] { aux.toURI().toURL() });
+				ClassLoader cl = new URLClassLoader(new URL[] { aux.toURI()
+						.toURL() });
 
-			MethodRefactor coi = new MethodRefactor();
+				MethodRefactor coi = new MethodRefactor();
 
-			coi.setClassLoader(cl);
+				coi.setClassLoader(cl);
 
-			coi.setRefactoringRules(methodRules);
+				coi.setRefactoringRules(methodRules);
 
-			cu.accept(coi, new VisitorContext());
-			tmpClass.delete();
-			return cu;
+				cu.accept(coi, new VisitorContext());
+
+				tmpClass.delete();
+
+				return cu;
+			} else {
+				return null;
+			}
 		}
 		return null;
 
@@ -109,10 +116,14 @@ public class MethodRefactorTest {
 
 		CompilationUnit cu = getRefactoredSource(code, rules);
 
-		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
-				.getMembers().get(0);
-		String stmt = md.getBody().getStmts().get(0).toString();
-		Assert.assertEquals("\"hello\".concat(\"a\").concat(\"a\");", stmt);
+		if (cu != null) {
+			MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
+					.getMembers().get(0);
+			String stmt = md.getBody().getStmts().get(0).toString();
+			Assert.assertEquals("\"hello\".concat(\"a\").concat(\"a\");", stmt);
+		} else {
+			Assert.assertTrue(true);
+		}
 	}
 
 	@Test
@@ -125,10 +136,15 @@ public class MethodRefactorTest {
 
 		CompilationUnit cu = getRefactoredSource(code, rules);
 
-		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
-				.getMembers().get(0);
-		String stmt = md.getBody().getStmts().get(0).toString();
-		Assert.assertEquals("bar.concat(\"a\").concat(\"a\");", stmt);
+		if (cu != null) {
+			MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
+					.getMembers().get(0);
+			String stmt = md.getBody().getStmts().get(0).toString();
+			Assert.assertEquals("bar.concat(\"a\").concat(\"a\");", stmt);
+		}
+		else{
+			Assert.assertTrue(true);
+		}
 	}
 
 	@Test
@@ -138,9 +154,9 @@ public class MethodRefactorTest {
 		coi.setRefactoringConfigFile("src/test/resources/refactoring-methods-config.json");
 
 		Assert.assertEquals(2, coi.getRefactoringRules().size());
-		
+
 		coi.setConstantsConfigFile("src/test/resources/refactoring-constants-to-enum.json");
-		
+
 		Assert.assertTrue(true);
 	}
 
