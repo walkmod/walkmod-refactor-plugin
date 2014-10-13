@@ -37,7 +37,7 @@ public class ClassOrInterfaceRefactorTest {
 
 	@Test
 	public void testTypes() throws Exception {
-
+   
 		String code = "import java.util.List; public class Foo { private List list;}";
 		CompilationUnit cu = ASTManager.parse(code);
 
