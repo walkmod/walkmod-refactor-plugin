@@ -69,7 +69,7 @@ public void hello(File file){
 }
 ```
 
-is rewriten to this one:
+It is rewriten to this one:
 
 ```java
 public void hello(File file){
@@ -85,7 +85,7 @@ public void hello(File file){
 
 == Usage
 
-1. First of all, compile your project using maven. So, execute `mvn install` in your shell. 
+1. First of all, compile your project using maven by execute `mvn install` in your shell.
 
 2. Add the https://github.com/rpau/walkmod-maven-plugin[walkmod-maven-plugin] into your `walkmod.xml` as a plugin. 
 This plugin will interprete your classpath accoding your `pom.xml`.
