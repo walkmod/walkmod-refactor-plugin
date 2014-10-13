@@ -1,6 +1,8 @@
-walkmod-refactor-plugin
+walkmod-refactor-plugin 
 =======================
 Raquel Pau <raquelpau@gmail.com>
+
+image:https://travis-ci.org/rpau/walkmod-refactor-plugin.svg?branch=master["Build Status", link="https://travis-ci.org/rpau/walkmod-refactor-plugin"]
 
 This is a walkmod plugin to support refactorings rules (mainly for migrations) in Java source files. For example, if you need to upgrade 
 an specific java library and some methods change their names, arguments..; others become deprecated and some classes change their name too.  In this situation,
