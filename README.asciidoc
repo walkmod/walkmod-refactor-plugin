@@ -24,7 +24,7 @@ Class refactoring rules are renaming rules for Java classes. To specify class re
 json object, whose field names are the old names of Java classes, and their values the new class names. 
 
 For example, imagine you are using a Java library (Maven dependency), which contains a class called `foo.Bar` and you need to upgrade 
-this library to the newest version, where the class `foo.Bar` has been renamed to `foo.BarDAO`. You need to specify this rule in a 
+this library to the newest version, where the class `foo.Bar` has been renamed to `foo.BarDAO`. You need to specify this rule as follows: 
 ```json
 {
   "foo.Bar": "foo.BarDAO"
@@ -41,8 +41,8 @@ you can derive the new argument type of these methods (e.g `foo.Bar:open(file.ge
 3. **Result Rules**: for those methods that have changed their result type. There is a keyword called `result` to specify how the new 
 method call must be transformed into a new expression to ensure the code follows the same workflow. For example:  `foo.Resource:isOpen() => foo.Resource:isClosed():!result`
 
-To specify method refactoring rules, you need to create a json file with a simple json oblect, whose field names are the 
-old method declaration of a Java class, and their values the mapping with the new declaration. Let's see the whole example.
+To specify method refactoring rules, you need to create a json file with a simple json oblect, with key-value pairs consisting of 
+the original method declaration and the new one, as follows:
 
 ```json
 {
@@ -50,6 +50,36 @@ old method declaration of a Java class, and their values the mapping with the ne
  "foo.Bar:open(java.io.File file)" : "foo.Bar:open(file.getPath())",
  "foo.Bar:open(java.io.File file; java.lang.Boolean append)" : "foo.Bar:open(file.getPath(); append)",
  "foo.Resource:isOpen()" : "foo.Resource:isClosed():!result"
+}
+```
+
+=== Example
+
+According the previous configurations, if we have the following Java code:
+
+```java
+public void hello(File file){
+	Bar bar = new Bar();
+	bar.open(file);
+	Resource res = bar.getResource();
+	if(res.isOpen()){
+		...
+	}
+	...
+}
+```
+
+is rewriten to this one:
+
+```java
+public void hello(File file){
+	BarDAO bar = new BarDAO();
+	bar.open(file.getPath());
+	Resource res = bar.getResource();
+	if(!res.isClosed()){
+		...
+	}
+	...
 }
 ```
 
