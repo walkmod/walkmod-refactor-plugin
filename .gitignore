@@ -1,4 +1,5 @@
 /.settings/
+/src/test/resources/tmp/
 /target/
 *.classpath
 *.project
