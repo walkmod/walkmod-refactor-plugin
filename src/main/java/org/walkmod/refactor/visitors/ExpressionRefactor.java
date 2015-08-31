@@ -15,7 +15,7 @@
  along with Walkmod.  If not, see <http://www.gnu.org/licenses/>.*/
 package org.walkmod.refactor.visitors;
 
-import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -23,26 +23,19 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
-import org.walkmod.exceptions.WalkModException;
 import org.walkmod.javalang.ASTManager;
 import org.walkmod.javalang.ParseException;
-import org.walkmod.javalang.ast.Node;
+import org.walkmod.javalang.ast.SymbolData;
 import org.walkmod.javalang.ast.body.BodyDeclaration;
 import org.walkmod.javalang.ast.expr.CastExpr;
-import org.walkmod.javalang.ast.expr.ClassExpr;
 import org.walkmod.javalang.ast.expr.Expression;
 import org.walkmod.javalang.ast.expr.FieldAccessExpr;
 import org.walkmod.javalang.ast.expr.MethodCallExpr;
 import org.walkmod.javalang.ast.expr.NameExpr;
 import org.walkmod.javalang.ast.expr.ObjectCreationExpr;
 import org.walkmod.javalang.ast.expr.UnaryExpr;
-import org.walkmod.javalang.ast.stmt.ExpressionStmt;
-import org.walkmod.javalang.ast.stmt.Statement;
 import org.walkmod.javalang.ast.type.Type;
-import org.walkmod.javalang.compiler.Symbol;
-import org.walkmod.javalang.compiler.SymbolTable;
-import org.walkmod.javalang.compiler.TypeTable;
-import org.walkmod.javalang.compiler.Types;
+import org.walkmod.javalang.compiler.types.Types;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
 import org.walkmod.walkers.VisitorContext;
 
@@ -54,44 +47,24 @@ import org.walkmod.walkers.VisitorContext;
  */
 public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 
-	private static final String CONVERT_TOKEN = "convert";
-
 	private Map<String, Expression> variables;
 
-	private Map<String, Class<?>> variableTypes;
+	private Map<String, SymbolData> variableTypes;
 
 	private Set<String> refactoredVariables = new HashSet<String>();
 
-	private TypeTable<VisitorContext> typeTable;
-
-	private SymbolTable symbolTable;
-
-	public static final String CURRENT_ASSIGN_NODE_KEY = "current_assign_expression";
-
-	public static final String PREVIOUS_REQUIRED_STATEMENTS_KEY = "previous_required_statements";
-
-	public static final String FORWARD_REQUIRED_STATEMENTS_KEY = "forward_required_statements";
-
-	public static final String CREATED_IO_VARIABLE = "created_io_variable";
-
-	public static final String CONSTRUCTOR_IO_VARIABLE = "constructor_io_variable";
 	
+
 	private static Logger log = Logger.getLogger(ExpressionRefactor.class);
 
 	public Set<String> getRefactoredVariables() {
 		return refactoredVariables;
 	}
 
-	private ExpressionTypeAnalyzer expressionTypeAnalyzer;
-
-	public ExpressionRefactor(SymbolTable symbolTable) {
-		this.symbolTable = symbolTable;
+	public ExpressionRefactor(){
+		this(new HashMap<String, Expression>());
 	}
-
-	public void setTypeTable(TypeTable<VisitorContext> typeTable) {
-		this.typeTable = typeTable;
-	}
-
+	
 	public ExpressionRefactor(Map<String, Expression> variable) {
 		this.variables = variable;
 	}
@@ -139,28 +112,23 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 				Expression updatedExpr = variables.get(ne.getName());
 				refactoredVariables.add(ne.getName());
 
-				Class<?> classExpr = variableTypes.get(ne.getName());
+				Class<?> classExpr = variableTypes.get(ne.getName()).getClazz();
 
-				try {
-					Class<?> castClass = typeTable.loadClass(n.getType());
-					if (Types.isCompatible(classExpr, castClass)) {
+				Class<?> castClass = n.getType().getSymbolData().getClazz();
+				
+				if ( Types.isCompatible(classExpr, castClass)) {
 
-						n.setData(updatedExpr);
-					} else {
+					n.setData(updatedExpr);
+				} else {
 
-						if (castClass.isPrimitive() 
-								&& !classExpr.isPrimitive()
-								&& Types.getWrapperClasses().containsKey(classExpr)) {
+					if (castClass.isPrimitive() && !classExpr.isPrimitive()
+							&& Types.getWrapperClasses().containsKey(classExpr)) {
 
-							updatedExpr = getPrimitiveMethodCallExpr(classExpr,
-											updatedExpr);
+						updatedExpr = getPrimitiveMethodCallExpr(classExpr,
+								updatedExpr);
 
-						}
-
-						n.setExpr(updatedExpr);
 					}
 
-				} catch (ClassNotFoundException e) {
 					n.setExpr(updatedExpr);
 				}
 
@@ -170,7 +138,7 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 		}
 
 	}
-	
+
 	private MethodCallExpr getPrimitiveMethodCallExpr(Class<?> clazz,
 			Expression scope) {
 		Map<String, String> wrapperClasses = Types.getWrapperClasses();
@@ -207,105 +175,8 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 			} else {
 				n.getScope().accept(this, arg);
 			}
-		} else {
-			// El convert no tiene scope
-			if (n.getName().equals(CONVERT_TOKEN)) {
-				Expression expr = n.getArgs().get(0);
-				Expression typeExpr = n.getArgs().get(1);
-				if (expr instanceof NameExpr && typeExpr instanceof ClassExpr) {
-					NameExpr nameExpr = (NameExpr) expr;
-					ClassExpr typeNameExpr = (ClassExpr) typeExpr;
-					Expression codeExpression = variables.get(nameExpr
-							.getName());
-
-					if (codeExpression != null) {
-						if (codeExpression instanceof FieldAccessExpr) {
-							n.setData(codeExpression);
-							refactoredVariables.add(nameExpr.getName());
-						}
-						// TODO:numeric constants
-					} else {
-						// TODO: ad-hoc convert
-						String constructorStringExpr = null;
-
-						try {
-							Symbol variableName = null;
-							String typeName = typeNameExpr.getType().toString();
-
-							if ("result".equals(nameExpr.getName())) {
-
-								Node rightAssignExpr = (Node) arg
-										.get(CURRENT_ASSIGN_NODE_KEY);
-
-								if (rightAssignExpr != null) {
-									constructorStringExpr = rightAssignExpr
-											.toString();
-									n.setData(rightAssignExpr);
-								} else {
-
-									variableName = symbolTable
-											.createSymbol(new org.walkmod.javalang.compiler.SymbolType(
-													typeName));
-
-									constructorStringExpr = typeName + " "
-											+ variableName.getName();
-
-									n.setData(variableName.getName());
-
-									arg.put(CREATED_IO_VARIABLE,
-											variableName.getName());
-
-								}
-
-							} else {
-
-								variableName = symbolTable
-										.createSymbol(new org.walkmod.javalang.compiler.SymbolType(
-												typeName));
-
-								constructorStringExpr = typeName + " "
-										+ variableName.getName();
-
-								n.setData(variableName.getName());
-
-								arg.put(CREATED_IO_VARIABLE,
-										variableName.getName());
-
-							}
-
-							if (constructorStringExpr != null) {
-								constructorStringExpr = constructorStringExpr
-										+ " = new " + typeName + "();";
-							} else {
-								log.debug("without constructor");
-							}
-
-							ExpressionStmt constructorASTExpr = (ExpressionStmt) ASTManager
-									.parse(Statement.class, constructorStringExpr);
-
-							if (!arg.containsKey(PREVIOUS_REQUIRED_STATEMENTS_KEY)) {
-								arg.put(PREVIOUS_REQUIRED_STATEMENTS_KEY,
-										new LinkedList<Statement>());
-							}
-							@SuppressWarnings("unchecked")
-							Collection<Statement> stmts = (Collection<Statement>) arg
-									.get(PREVIOUS_REQUIRED_STATEMENTS_KEY);
-							stmts.add(constructorASTExpr);
-
-							arg.put(CONSTRUCTOR_IO_VARIABLE, constructorASTExpr);
-
-						} catch (ParseException e) {
-							throw new WalkModException(e);
-						}
-					}
-					return;
-
-				} else {
-					// TODO check both cases
-				}
-
-			}
 		}
+
 		if (n.getTypeArgs() != null) {
 			for (Type t : n.getTypeArgs()) {
 				t.accept(this, arg);
@@ -382,21 +253,12 @@ public class ExpressionRefactor extends VoidVisitorAdapter<VisitorContext> {
 		}
 	}
 
-	public Map<String, Class<?>> getVariableTypes() {
+	public Map<String, SymbolData> getVariableTypes() {
 		return variableTypes;
 	}
 
-	public void setVariableTypes(Map<String, Class<?>> variableTypes) {
+	public void setVariableTypes(Map<String, SymbolData> variableTypes) {
 		this.variableTypes = variableTypes;
-	}
-
-	public ExpressionTypeAnalyzer getExpressionTypeAnalyzer() {
-		return expressionTypeAnalyzer;
-	}
-
-	public void setExpressionTypeAnalyzer(
-			ExpressionTypeAnalyzer expressionTypeAnalyzer) {
-		this.expressionTypeAnalyzer = expressionTypeAnalyzer;
 	}
 
 }

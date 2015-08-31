@@ -1,91 +1,35 @@
 package org.walkmod.refactor.visitors;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-
-import javax.tools.JavaCompiler;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.ToolProvider;
 
 import junit.framework.Assert;
 
 import org.junit.Test;
-import org.walkmod.javalang.ASTManager;
 import org.walkmod.javalang.ast.CompilationUnit;
 import org.walkmod.javalang.ast.body.MethodDeclaration;
-import org.walkmod.refactor.visitors.MethodRefactor;
+import org.walkmod.javalang.ast.expr.MethodCallExpr;
+import org.walkmod.javalang.ast.expr.UnaryExpr;
+import org.walkmod.javalang.ast.stmt.IfStmt;
+import org.walkmod.javalang.test.SemanticTest;
 import org.walkmod.walkers.VisitorContext;
 
-public class MethodRefactorTest {
+public class MethodRefactorTest extends SemanticTest {
 
-	private static String TEST_DIR = "./src/test/resources/tmp/";
+	public CompilationUnit getRefactoredSource(Map<String, String> methodRules,
+			String... code) throws Exception {
 
-	private static String COMPILATION_DIR = "./src/test/resources/tmp/classes";
+		CompilationUnit cu = compile(code);
 
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public boolean compile(File... files) throws IOException {
-		JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-		List<String> optionList = new ArrayList<String>();
-		File tmp = new File(COMPILATION_DIR);
-		boolean result = (tmp.mkdirs() || tmp.exists()) && tmp.canWrite();
-		if (result) {
-			optionList.addAll(Arrays.asList("-d", tmp.getAbsolutePath()));
-			StandardJavaFileManager sjfm = compiler.getStandardFileManager(
-					null, null, null);
-			Iterable fileObjects = sjfm.getJavaFileObjects(files);
-			JavaCompiler.CompilationTask task = compiler.getTask(null, null,
-					null, optionList, null, fileObjects);
-			task.call();
-			sjfm.close();
-		}
-		return result;
-	}
+		MethodRefactor coi = new MethodRefactor();
 
-	public CompilationUnit getRefactoredSource(String code,
-			Map<String, String> methodRules) throws Exception {
+		coi.setClassLoader(getClassLoader());
 
-		CompilationUnit cu = ASTManager.parse(code);
-		File srcDir = new File(TEST_DIR, "src");
+		coi.setRefactoringRules(methodRules);
 
-		if ((srcDir.mkdirs() || srcDir.exists()) && srcDir.canWrite()) {
+		cu.accept(coi, new VisitorContext());
 
-			File tmpClass = new File(TEST_DIR, "Foo.java");
-			FileWriter fw = new FileWriter(tmpClass);
-			fw.write(code);
-			fw.flush();
-			fw.close();
-
-			if (compile(tmpClass)) {
-
-				File aux = new File(COMPILATION_DIR);
-
-				ClassLoader cl = new URLClassLoader(new URL[] { aux.toURI()
-						.toURL() });
-
-				MethodRefactor coi = new MethodRefactor();
-
-				coi.setClassLoader(cl);
-
-				coi.setRefactoringRules(methodRules);
-
-				cu.accept(coi, new VisitorContext());
-
-				tmpClass.delete();
-
-				return cu;
-			} else {
-				return null;
-			}
-		}
-		return null;
+		return cu;
 
 	}
 
@@ -97,7 +41,7 @@ public class MethodRefactorTest {
 		rules.put("java.io.PrintStream:print(java.lang.String text)",
 				"java.io.PrintStream:println(text)");
 
-		CompilationUnit cu = getRefactoredSource(code, rules);
+		CompilationUnit cu = getRefactoredSource(rules, code);
 
 		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
 				.getMembers().get(0);
@@ -114,16 +58,13 @@ public class MethodRefactorTest {
 		rules.put("java.lang.String:substring(int pos)",
 				"java.lang.String:concat(\"a\")");
 
-		CompilationUnit cu = getRefactoredSource(code, rules);
+		CompilationUnit cu = getRefactoredSource(rules, code);
 
-		if (cu != null) {
-			MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
-					.getMembers().get(0);
-			String stmt = md.getBody().getStmts().get(0).toString();
-			Assert.assertEquals("\"hello\".concat(\"a\").concat(\"a\");", stmt);
-		} else {
-			Assert.assertTrue(true);
-		}
+		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
+				.getMembers().get(0);
+		String stmt = md.getBody().getStmts().get(0).toString();
+		Assert.assertEquals("\"hello\".concat(\"a\").concat(\"a\");", stmt);
+
 	}
 
 	@Test
@@ -134,17 +75,32 @@ public class MethodRefactorTest {
 		rules.put("java.lang.String:substring(int pos)",
 				"java.lang.String:concat(\"a\")");
 
-		CompilationUnit cu = getRefactoredSource(code, rules);
+		CompilationUnit cu = getRefactoredSource(rules, code);
 
-		if (cu != null) {
-			MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
-					.getMembers().get(0);
-			String stmt = md.getBody().getStmts().get(0).toString();
-			Assert.assertEquals("bar.concat(\"a\").concat(\"a\");", stmt);
-		}
-		else{
-			Assert.assertTrue(true);
-		}
+		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
+				.getMembers().get(0);
+		String stmt = md.getBody().getStmts().get(0).toString();
+		Assert.assertEquals("bar.concat(\"a\").concat(\"a\");", stmt);
+
+	}
+
+	@Test
+	public void testResultTransformations() throws Exception {
+		String code = "import java.io.File; public class A { public void hello(File file){ "
+				+ "Bar bar = new Bar(); "
+				+ "bar.open(file); "
+				+ "if(bar.isOpen()){}" + " }}";
+
+		String barCode = "import java.io.File; public class Bar { public void open(File file){} public boolean isOpen() {return false;}}";
+		Map<String, String> rules = new HashMap<String, String>();
+		rules.put("Bar:isOpen()", "Bar:isClosed():!result");
+		CompilationUnit cu = getRefactoredSource(rules, code, barCode);
+
+		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
+				.getMembers().get(0);
+		IfStmt ifStmt = (IfStmt)md.getBody().getStmts().get(2);
+		
+		Assert.assertTrue((ifStmt.getCondition() instanceof UnaryExpr));
 	}
 
 	@Test
@@ -155,9 +111,6 @@ public class MethodRefactorTest {
 
 		Assert.assertEquals(2, coi.getRefactoringRules().size());
 
-		coi.setConstantsConfigFile("src/test/resources/refactoring-constants-to-enum.json");
-
-		Assert.assertTrue(true);
 	}
 
 }

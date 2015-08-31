@@ -28,7 +28,7 @@ import org.walkmod.javalang.ASTManager;
 import org.walkmod.javalang.ParseException;
 import org.walkmod.javalang.ast.body.MethodDeclaration;
 import org.walkmod.javalang.ast.body.Parameter;
-import org.walkmod.javalang.compiler.TypeTable;
+import org.walkmod.javalang.compiler.symbols.ASTSymbolTypeResolver;
 
 public class MethodHeaderDeclarationDictionary implements
 		Collection<MethodHeaderDeclaration> {
@@ -37,7 +37,19 @@ public class MethodHeaderDeclarationDictionary implements
 
 	private Map<String, Collection<MethodHeaderDeclaration>> dictionary = new HashMap<String, Collection<MethodHeaderDeclaration>>();
 
-	private TypeTable typeTable;
+	private ClassLoader classLoader;
+	
+	public MethodHeaderDeclarationDictionary(){
+		
+	}
+	
+	public void setClassLoader(ClassLoader classLoader){
+		this.classLoader = classLoader;
+	}
+	
+	public MethodHeaderDeclarationDictionary(ClassLoader classLoader){
+		this.classLoader = classLoader;
+	}
 
 	public MethodHeaderDeclaration parse(String methodHeaderDeclaration)
 			throws ParseException {
@@ -117,7 +129,7 @@ public class MethodHeaderDeclarationDictionary implements
 		Class<?> c = null;
 
 		try {
-			c = typeTable.loadClass(scope);
+			c = Class.forName(scope, false, classLoader);
 
 		} catch (ClassNotFoundException e) {
 
@@ -128,7 +140,7 @@ public class MethodHeaderDeclarationDictionary implements
 
 			try {
 
-				if (typeTable.loadClass(mhd.getScope()).isAssignableFrom(c)) {
+				if ( Class.forName(mhd.getScope(), false, classLoader).isAssignableFrom(c)) {
 					result.add(mhd);
 				}
 			} catch (ClassNotFoundException e) {
@@ -173,7 +185,8 @@ public class MethodHeaderDeclarationDictionary implements
 				while (it.hasNext() && it2.hasNext() && equals) {
 
 					Parameter tp = it2.next();
-					equals = it.next().equals(typeTable.valueOf(tp.getType()));
+					
+					equals = it.next().equals(ASTSymbolTypeResolver.getInstance().valueOf(tp.getType()));
 				}
 				if (equals) {
 					return md;
@@ -257,12 +270,5 @@ public class MethodHeaderDeclarationDictionary implements
 		methods.clear();
 	}
 
-	public TypeTable getTypeTable() {
-		return typeTable;
-	}
-
-	public void setTypeTable(TypeTable typeTable) {
-		this.typeTable = typeTable;
-	}
 
 }

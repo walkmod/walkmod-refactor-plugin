@@ -20,9 +20,9 @@ import java.util.List;
 
 import org.walkmod.javalang.ast.body.Parameter;
 import org.walkmod.javalang.ast.type.ClassOrInterfaceType;
-import org.walkmod.javalang.ast.type.ReferenceType;
 import org.walkmod.javalang.ast.type.Type;
-import org.walkmod.javalang.compiler.TypeTable;
+import org.walkmod.javalang.compiler.symbols.SymbolType;
+import org.walkmod.refactor.visitors.ASTTypeNameResolver;
 
 
 public class MethodHeaderDeclaration {
@@ -39,12 +39,7 @@ public class MethodHeaderDeclaration {
 
 	private int modifiers;
 	
-	private TypeTable typeTable;
 	
-	public void setTypeTable(TypeTable typeTable){
-		this.typeTable=typeTable;
-	}
-
 	public String getScope() {
 		return scope;
 	}
@@ -71,18 +66,12 @@ public class MethodHeaderDeclaration {
 		}
 	}
 
-	public Class<?>[] getArgTypeClasses() throws ClassNotFoundException {
-		Class<?>[] res = new Class[this.args.size()];
+	public SymbolType[] getArgTypeClasses() throws ClassNotFoundException {
+		SymbolType[] res = new SymbolType[this.args.size()];
 		int i = 0;
 		for (Parameter type : getArgs()) {
 			Type t = type.getType();
-			String typeName = "";
-			if (t instanceof ReferenceType) {
-				typeName = ((ClassOrInterfaceType) ((ReferenceType) t)
-						.getType()).getName();
-			}
-
-			res[i] = typeTable.loadClass(typeName);
+			res[i] = ASTTypeNameResolver.getInstance().valueOf(t);
 			i++;
 		}
 		return res;

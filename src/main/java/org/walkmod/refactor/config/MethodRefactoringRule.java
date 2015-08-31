@@ -27,7 +27,8 @@ import org.walkmod.javalang.ast.expr.Expression;
 import org.walkmod.javalang.ast.type.ClassOrInterfaceType;
 import org.walkmod.javalang.ast.type.ReferenceType;
 import org.walkmod.javalang.ast.type.VoidType;
-import org.walkmod.javalang.compiler.TypeTable;
+import org.walkmod.javalang.compiler.symbols.SymbolType;
+import org.walkmod.refactor.visitors.ASTTypeNameResolver;
 
 public class MethodRefactoringRule {
 
@@ -43,20 +44,16 @@ public class MethodRefactoringRule {
 
 	private String resultExpression;
 
-	private Type resultType;
-
 	private String resultVariable = "result";
 
 	private String implicitVaribale = "this";
 
 	private String implicitExpression;
 
-	private TypeTable typeTable;
 
-	public MethodRefactoringRule() {
+	public MethodRefactoringRule(ClassLoader classLoader) {
 		sourceMethod = new MethodHeaderDeclaration();
 		targetMethod = new MethodHeaderDeclaration();
-
 	}
 
 	public String getScope() {
@@ -152,12 +149,13 @@ public class MethodRefactoringRule {
 		return implicitExpression != null;
 	}
 
-	public List<String> getArgTypes() {
+	public SymbolType[] getArgTypes() {
 		List<Parameter> params = sourceMethod.getArgs();
-		List<String> result = new LinkedList<String>();
-
+		SymbolType[] result = new SymbolType[params.size()];
+		int i = 0;
 		for (Parameter tp : params) {
-			result.add(typeTable.valueOf(tp.getType()).getName());
+			result[i]= ASTTypeNameResolver.getInstance().valueOf(tp.getType());
+			i++;
 		}
 		return result;
 	}
@@ -191,17 +189,11 @@ public class MethodRefactoringRule {
 		this.sourceMethod.setName(sourceMethodName);
 	}
 
-	public Class<?>[] getArgTypeClasses() throws ClassNotFoundException {
+	public SymbolType[] getArgTypeClasses() throws ClassNotFoundException {
 		return sourceMethod.getArgTypeClasses();
 	}
 
-	public Type getResultType() {
-		return resultType;
-	}
-
-	public void setResultType(Type resultType) {
-		this.resultType = resultType;
-	}
+	
 
 	public String getImplicitVaribale() {
 		return implicitVaribale;
@@ -219,14 +211,5 @@ public class MethodRefactoringRule {
 		this.implicitExpression = implicitExpression;
 	}
 
-	public TypeTable getTypeTable() {
-		return typeTable;
-	}
-
-	public void setTypeTable(TypeTable importTable) {
-		this.typeTable = importTable;
-		sourceMethod.setTypeTable(typeTable);
-		targetMethod.setTypeTable(typeTable);
-	}
 
 }

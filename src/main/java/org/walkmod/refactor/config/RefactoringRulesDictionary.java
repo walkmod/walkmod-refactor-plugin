@@ -24,9 +24,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
-import org.walkmod.exceptions.WalkModException;
-import org.walkmod.javalang.compiler.Types;
-import org.walkmod.javalang.compiler.TypeTable;
+import org.walkmod.javalang.compiler.symbols.SymbolType;
 import org.walkmod.refactor.exceptions.InvalidRefactoringRuleException;
 
 
@@ -34,21 +32,19 @@ public class RefactoringRulesDictionary {
 
 	private Collection<MethodRefactoringRule> refactoringRules;
 
-	private TypeTable typeTable;
+	
 	
 	private static Logger log = Logger.getLogger(RefactoringRulesDictionary.class);
 	
 	private ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
-	public RefactoringRulesDictionary(TypeTable typeTable, ClassLoader classLoader) {
+	public RefactoringRulesDictionary(ClassLoader classLoader) {
 		refactoringRules = new LinkedList<MethodRefactoringRule>();
-
-		this.typeTable = typeTable;
 		this.classLoader = classLoader;
 	}
 
-	public MethodRefactoringRule getRefactoringRule(String scopeType,
-			String method, String[] args) throws ClassNotFoundException {
+	public MethodRefactoringRule getRefactoringRule(SymbolType scopeType,
+			String method, SymbolType[] args) throws ClassNotFoundException {
 
 		if (scopeType == null) {
 			throw new IllegalArgumentException("scopeType is null");
@@ -62,38 +58,22 @@ public class RefactoringRulesDictionary {
 		while (it.hasNext()) {
 
 			MethodRefactoringRule current = it.next();
-
-			if (current.getSourceScope().equals(scopeType)
-					|| Types.isCompatible(
-							typeTable.loadClass(scopeType),
-							typeTable.loadClass(current.getSourceScope()))) {
+			SymbolType st = new SymbolType(current.getSourceScope());
+			
+			if (st.isCompatible(scopeType)) {
 
 				if (current.getSourceMethodName().equals(method)) {
 
-					List<String> argTypes = current.getArgTypes();
+					SymbolType[] argTypes = current.getArgTypes();
 
-					boolean compatible = (args == null && (argTypes.size() == 0 || argTypes == null))
-							|| 
-							(args!= null && argTypes!= null && args.length == argTypes.size());
+					boolean compatible = args.length == argTypes.length;
 
-					Iterator<String> jt = argTypes.iterator();
-					if (args != null) {
-
-						for (int i = 0; i < args.length && compatible
-								&& jt.hasNext(); i++) {
-
-							String superClazz = jt.next();
-
-							if (!args[i].equals(superClazz)
-									&& !Types.isCompatible(
-											typeTable.loadClass(args[i]),
-											typeTable.loadClass(superClazz))) {
-
-								compatible = false;
-							}
-
-						}
+					int i = 0;
+					while(compatible && i < args.length){
+						compatible = args[i].isCompatible(argTypes[i]);
+						i++;
 					}
+					
 					if (compatible) {
 
 						return current;
@@ -119,9 +99,8 @@ public class RefactoringRulesDictionary {
 			key = entry.getKey();
 			value = entry.getValue();
 
-			rule = new MethodRefactoringRule();
-			rule.setTypeTable(typeTable);
-
+			rule = new MethodRefactoringRule(classLoader);
+		
 			// source scope
 			int parentScopeIndex = key.indexOf(':');
 			if (parentScopeIndex == -1) {
@@ -242,56 +221,7 @@ public class RefactoringRulesDictionary {
 				rule.setArgTypes(argTypes);
 				rule.setVariables(Arrays.asList(variables));
 			}
-
-			Class<?>[] argTypeClasses;
-			try {
-				argTypeClasses = rule.getArgTypeClasses();
-
-			} catch (ClassNotFoundException e) {
-				throw new WalkModException(
-						"Invalid arg types in the rule number " + ruleNumber, e);
-			}
-
-			Class<?> scopeClass;
-			try {
-				scopeClass = Class.forName(rule.getSourceScope(), false, classLoader);
-			} catch (ClassNotFoundException e) {
-				throw new WalkModException("Invalid source class ["
-						+ rule.getSourceScope() + "] in the rule number "
-						+ ruleNumber, e);
-			}
-
-			if (!scopeClass.getSimpleName().equals(rule.getSourceMethodName())) {
-
-				java.lang.reflect.Type returnType = null;
-				try {
-					returnType = scopeClass.getMethod(
-							rule.getSourceMethodName(), argTypeClasses)
-							.getGenericReturnType();
-				} catch (Exception e) {
-					throw new WalkModException("Invalid method ["
-							+ rule.getSourceScope() + "#"
-							+ rule.getSourceMethodName()
-							+ " in the rule number " + ruleNumber, e);
-				}
-				if (returnType != null) {
-					rule.setResultType(returnType);
-				}
-			} else {
-				// the constructor
-				try {
-					scopeClass.getConstructor(argTypeClasses);
-				} catch (Exception e) {
-
-					throw new WalkModException(
-							"Invalid args for the constructor ["
-									+ rule.getSourceMethodName() + "]", e);
-
-				}
-				rule.setResultType(scopeClass);
-			}
-
-			rule.setTypeTable(typeTable);
+			
 			this.refactoringRules.add(rule);
 		}
 	}
