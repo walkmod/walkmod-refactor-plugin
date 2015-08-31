@@ -1,0 +1,1 @@
+import java.io.File; public class Bar { public boolean isOpen(File file){return false;}}

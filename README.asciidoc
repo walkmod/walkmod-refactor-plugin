@@ -99,8 +99,8 @@ set your refactoring configurations.
 <!DOCTYPE walkmod PUBLIC "-//WALKMOD//DTD"  "http://www.walkmod.com/dtd/walkmod-1.0.dtd" >
 <walkmod>
   <plugins>
-    <plugin groupId="org.walkmod" artifactId="walkmod-maven-plugin" version="1.0" />
-    <plugin groupId="org.walkmod" artifactId="walkmod-refactor-plugin" version="1.0" />
+    <plugin groupId="org.walkmod" artifactId="walkmod-maven-plugin" version="[1.0, 2.0)" />
+    <plugin groupId="org.walkmod" artifactId="walkmod-refactor-plugin" version="[2.0, 3.0)" />
   </plugins>
   <conf-providers>
     <conf-provider type="walkmod:commons:maven"></conf-provider>

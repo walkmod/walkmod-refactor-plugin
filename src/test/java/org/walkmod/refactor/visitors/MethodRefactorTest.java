@@ -102,6 +102,50 @@ public class MethodRefactorTest extends SemanticTest {
 		
 		Assert.assertTrue((ifStmt.getCondition() instanceof UnaryExpr));
 	}
+	
+	@Test
+	public void testResultTransformationsWithExistingParams() throws Exception {
+		String code = "import java.io.File; public class A { public void hello(File file){ "
+				+ "Bar bar = new Bar(); "
+				+ "if(bar.isOpen(file)){}" + " }}";
+
+		String barCode = "import java.io.File; public class Bar { public boolean isOpen(File file){return false;}}";
+		Map<String, String> rules = new HashMap<String, String>();
+		rules.put("Bar:isOpen(java.io.File file)", "[file]:isOpen()");
+		CompilationUnit cu = getRefactoredSource(rules, code, barCode);
+
+		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
+				.getMembers().get(0);
+		IfStmt ifStmt = (IfStmt)md.getBody().getStmts().get(1);
+		
+		Assert.assertTrue((ifStmt.getCondition() instanceof MethodCallExpr));
+		
+		MethodCallExpr call = (MethodCallExpr)ifStmt.getCondition();
+		Assert.assertEquals("file", call.getScope().toString());
+	}
+	
+	@Test
+	public void testResultTransformationsWithExistingParamsAndResult() throws Exception {
+		String code = "import java.io.File; public class A { public void hello(File file){ "
+				+ "Bar bar = new Bar(); "
+				+ "if(bar.isOpen(file)){}" + " }}";
+
+		String barCode = "import java.io.File; public class Bar { public boolean isOpen(File file){return false;}}";
+		Map<String, String> rules = new HashMap<String, String>();
+		rules.put("Bar:isOpen(java.io.File file)", "Bar:prepare():file.isOpen()");
+		CompilationUnit cu = getRefactoredSource(rules, code, barCode);
+
+		MethodDeclaration md = (MethodDeclaration) cu.getTypes().get(0)
+				.getMembers().get(0);
+		Assert.assertEquals(3, md.getBody().getStmts().size());
+		
+		IfStmt ifStmt = (IfStmt)md.getBody().getStmts().get(2);
+		
+		Assert.assertTrue((ifStmt.getCondition() instanceof MethodCallExpr));
+		
+		MethodCallExpr call = (MethodCallExpr)ifStmt.getCondition();
+		Assert.assertEquals("file", call.getScope().toString());
+	}
 
 	@Test
 	public void testParsingConfigFile() throws Exception {

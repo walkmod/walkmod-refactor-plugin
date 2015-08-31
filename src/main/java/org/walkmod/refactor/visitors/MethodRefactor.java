@@ -383,7 +383,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					if (arg.get(UPDATED_STATEMENT_KEY) != null) {
 						stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
 					} else {
-						LOG.debug("The method " + s.toString() + " is removed");
+						
 						arg.remove(UPDATED_STATEMENT_KEY);
 					}
 				}
@@ -476,7 +476,7 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 					if (arg.get(UPDATED_STATEMENT_KEY) != null) {
 						stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
 					} else {
-						LOG.debug("The method " + s.toString() + " is removed");
+						
 						arg.remove(UPDATED_STATEMENT_KEY);
 					}
 				}

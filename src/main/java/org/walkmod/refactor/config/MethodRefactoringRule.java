@@ -16,7 +16,6 @@
 
 package org.walkmod.refactor.config;
 
-import java.lang.reflect.Type;
 import java.util.LinkedList;
 import java.util.List;
 
