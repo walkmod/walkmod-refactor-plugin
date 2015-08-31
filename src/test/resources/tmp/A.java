@@ -1,1 +1,0 @@
-import java.io.File; public class A { public void hello(File file){ Bar bar = new Bar(); if(bar.isOpen(file)){} }}
