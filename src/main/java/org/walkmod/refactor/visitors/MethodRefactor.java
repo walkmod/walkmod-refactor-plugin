@@ -409,7 +409,9 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 	public void setRefactoringConfigFile(String refactoringConfigFile)
 			throws Exception {
 		File file = new File(refactoringConfigFile);
-
+		if (!file.exists()) {
+			file = new File("src/main/walkmod/refactor/refactoring-methods.json");
+		}
 		if (file.exists()) {
 
 			if (file.canRead()) {

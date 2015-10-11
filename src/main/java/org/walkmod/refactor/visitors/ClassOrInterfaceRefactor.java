@@ -234,7 +234,9 @@ public class ClassOrInterfaceRefactor extends
 	public void setRefactoringConfigFile(String refactoringConfigFile)
 			throws Exception {
 		File file = new File(refactoringConfigFile);
-
+		if (!file.exists()) {
+			file = new File("src/main/walkmod/refactor/refactoring-classes.json");
+		}
 		if (file.exists()) {
 
 			if (file.canRead()) {
