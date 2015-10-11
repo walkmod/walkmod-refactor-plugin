@@ -107,14 +107,16 @@ set your refactoring configurations.
   </conf-providers>
   <chain name="main-chain">	
     <transformation type="walkmod:commons:method-refactor">
-      <param name="refactoringConfigFile">src/conf/refactoring-methods.json</param>
+      <param name="refactoringConfigFile">src/main/walkmod/refactor/refactoring-methods.json</param>
     </transformation>
     <transformation type="walkmod:commons:class-refactor">
-      <param name="refactoringConfigFile">src/conf/refactoring-classes.json</param>
+      <param name="refactoringConfigFile">src/main/walkmod/refactor/refactoring-classes.json</param>
     </transformation>
   </chain>	
 </walkmod>
 ```
+
+If you decide to store the refactor configurations in the same place than the example, you can avoid define these params.
 
 5. Type and execute `walkmod apply` in your shell from your project directory.
 
