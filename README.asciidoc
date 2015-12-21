@@ -85,31 +85,22 @@ public void hello(File file){
 
 == Usage
 
-1. First of all, compile your project using maven by execute `mvn install` in your shell.
+1. Add your project build tool (maven or gradle) ad a configuration provider into the `walkmod.xml.
 
-2. Add the https://github.com/rpau/walkmod-maven-plugin[walkmod-maven-plugin] into your `walkmod.xml` as a plugin. 
-This plugin will interprete your classpath accoding your `pom.xml`.
-
-3. Add https://github.com/rpau/walkmod-refactor-plugin[walkmod-refactor-plugin] into your `walkmod.xml` as a plugin.
-
-4. Add the transformations `walkmod:commons:method-refactor` and `walkmod:commons:class-refactor` into your  `walkmod.xml` and 
+2. Add the transformations `org.walkmod:walkmod-refactor-plugin:methods` and `org.walkmod:walkmod-refactor-plugin:classes` into your  `walkmod.xml` and 
 set your refactoring configurations.
 
 ```XML
-<!DOCTYPE walkmod PUBLIC "-//WALKMOD//DTD"  "http://www.walkmod.com/dtd/walkmod-1.0.dtd" >
+<!DOCTYPE walkmod PUBLIC "-//WALKMOD//DTD"  "http://www.walkmod.com/dtd/walkmod-1.1.dtd" >
 <walkmod>
-  <plugins>
-    <plugin groupId="org.walkmod" artifactId="walkmod-maven-plugin" version="[1.0, 2.0)" />
-    <plugin groupId="org.walkmod" artifactId="walkmod-refactor-plugin" version="[2.0, 3.0)" />
-  </plugins>
   <conf-providers>
-    <conf-provider type="walkmod:commons:maven"></conf-provider>
+    <conf-provider type="maven"></conf-provider>
   </conf-providers>
   <chain name="main-chain">	
-    <transformation type="walkmod:commons:method-refactor">
+    <transformation type="org.walkmod:walkmod-refactor-plugin:methods">
       <param name="refactoringConfigFile">src/main/walkmod/refactor/refactoring-methods.json</param>
     </transformation>
-    <transformation type="walkmod:commons:class-refactor">
+    <transformation type="org.walkmod:walkmod-refactor-plugin:classes">
       <param name="refactoringConfigFile">src/main/walkmod/refactor/refactoring-classes.json</param>
     </transformation>
   </chain>	
