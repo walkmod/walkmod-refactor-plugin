@@ -3,6 +3,7 @@ walkmod-refactor-plugin
 Raquel Pau <raquelpau@gmail.com>
 
 image:https://travis-ci.org/rpau/walkmod-refactor-plugin.svg?branch=master["Build Status", link="https://travis-ci.org/rpau/walkmod-refactor-plugin"]
+image:http://walkmod.com/pulls/rpau/walkmod-refactor-plugin/master/status.svg["Code status"" link="http://walkmod.com/rpau/"]
 
 This is a http://www.walkmod.com[walkmod] plugin to support refactoring rules (mainly for migrations) in Java source files. 
 
