@@ -84,7 +84,24 @@ public void hello(File file){
 ```
 
 == Usage
+We recommend to use the last version of walkmod because it becomes easier to configure.
 
+=== Walkmod >= 2.2.0
+
+If your project is build with maven or gradle, you simply need to execute:
+
+----
+walkmod add -DrefactoringConfigFile="src/main/walkmod/refactor/refactoring-methods.json" refactor:methods
+----
+
+To refactor methods.
+
+If you need to refactor java classes:
+----
+walkmod add -DrefactoringConfigFile="src/main/walkmod/refactor/refactoring-methods.json" refactor:classes
+----
+
+=== Previous versions
 1. Add your project build tool (maven or gradle) ad a configuration provider into the `walkmod.xml.
 
 2. Add the transformations `org.walkmod:walkmod-refactor-plugin:methods` and `org.walkmod:walkmod-refactor-plugin:classes` into your  `walkmod.xml` and 
