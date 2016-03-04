@@ -29,6 +29,7 @@ import org.walkmod.conf.entities.WalkerConfig;
 import org.walkmod.conf.entities.impl.ChainConfigImpl;
 import org.walkmod.conf.entities.impl.TransformationConfigImpl;
 import org.walkmod.conf.entities.impl.WalkerConfigImpl;
+import org.walkmod.refactor.visitors.MethodRefactor;
 import org.walkmod.walkers.VisitorContext;
 
 public class RefactorConfigurationController {
@@ -64,7 +65,8 @@ public class RefactorConfigurationController {
          wc.setRootNamespace(currentWC.getRootNamespace());
          List<TransformationConfig> transformations = new LinkedList<TransformationConfig>();
          TransformationConfig tc = new TransformationConfigImpl();
-         tc.setType("refactor:methods");
+         tc.setType(MethodRefactor.class.getName());
+       
          Map<String, Object> parameters = new HashMap<String, Object>();
          refactoringRules = new HashMap<String, String>();
          parameters.put("refactoringRules", refactoringRules);
