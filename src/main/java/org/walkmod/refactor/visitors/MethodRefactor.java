@@ -16,6 +16,7 @@
 package org.walkmod.refactor.visitors;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -31,6 +32,7 @@ import org.walkmod.exceptions.WalkModException;
 import org.walkmod.javalang.ast.CompilationUnit;
 import org.walkmod.javalang.ast.MethodSymbolData;
 import org.walkmod.javalang.ast.SymbolData;
+import org.walkmod.javalang.ast.body.MethodDeclaration;
 import org.walkmod.javalang.ast.body.VariableDeclarator;
 import org.walkmod.javalang.ast.expr.AssignExpr;
 import org.walkmod.javalang.ast.expr.BinaryExpr;
@@ -47,6 +49,7 @@ import org.walkmod.javalang.ast.stmt.SwitchEntryStmt;
 import org.walkmod.javalang.ast.type.Type;
 import org.walkmod.javalang.compiler.symbols.RequiresSemanticAnalysis;
 import org.walkmod.javalang.compiler.symbols.SymbolType;
+import org.walkmod.javalang.visitors.VoidVisitor;
 import org.walkmod.javalang.visitors.VoidVisitorAdapter;
 import org.walkmod.refactor.config.MethodRefactoringRule;
 import org.walkmod.refactor.config.RefactoringRulesDictionary;
@@ -58,625 +61,622 @@ import com.alibaba.fastjson.JSONObject;
 @RequiresSemanticAnalysis
 public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
 
-	private RefactoringRulesDictionary refactoringRules;
+   private RefactoringRulesDictionary refactoringRules;
 
-	private Map<String, String> inputRules;
+   private Map<String, String> inputRules;
 
-	private ExpressionRefactor exprRefactor;
+   private ExpressionRefactor exprRefactor;
 
-	private static final String UPDATED_STATEMENT_KEY = "updated_statement_key";
+   private static final String UPDATED_STATEMENT_KEY = "updated_statement_key";
 
-	private static final String UPDATED_EXPRESSION_KEY = "updated_expression_key";
+   private static final String UPDATED_EXPRESSION_KEY = "updated_expression_key";
 
-	public static final String PREVIOUS_REQUIRED_STATEMENTS_KEY = "previous_required_statements";
+   public static final String PREVIOUS_REQUIRED_STATEMENTS_KEY = "previous_required_statements";
 
-	public static final String FORWARD_REQUIRED_STATEMENTS_KEY = "forward_required_statements";
+   public static final String FORWARD_REQUIRED_STATEMENTS_KEY = "forward_required_statements";
 
-	private static Logger LOG = Logger.getLogger(MethodRefactor.class);
+   private static Logger LOG = Logger.getLogger(MethodRefactor.class);
 
-	private ClassLoader classLoader = null;
+   private ClassLoader classLoader = null;
 
-	private boolean setUp = false;
+   private Map<Method, VoidVisitor<?>> refactoringVisitors;
 
-	public MethodRefactor() {
-	}
+   private boolean setUp = false;
 
-	public void setClassLoader(ClassLoader classLoader) {
-		this.classLoader = classLoader;
-	}
+   public MethodRefactor() {
+   }
 
-	@Override
-	public void visit(CompilationUnit unit, VisitorContext arg) {
-		if (!setUp) {
+   public void setClassLoader(ClassLoader classLoader) {
+      this.classLoader = classLoader;
+   }
 
-			this.refactoringRules = new RefactoringRulesDictionary(classLoader);
-			exprRefactor = new ExpressionRefactor();
+   @Override
+   public void visit(CompilationUnit unit, VisitorContext arg) {
+      if (!setUp) {
 
-			refactoringRules.putRules(inputRules);
-			setUp = true;
-		}
+         this.refactoringRules = new RefactoringRulesDictionary(classLoader);
+         exprRefactor = new ExpressionRefactor();
 
-	
-		super.visit(unit, arg);
+         refactoringRules.putRules(inputRules);
+         setUp = true;
+      }
 
-	}
+      super.visit(unit, arg);
 
-	public void visit(AssignExpr n, VisitorContext arg) {
-		n.getTarget().accept(this, arg);
+   }
 
-		n.getValue().accept(this, arg);
+   public void visit(AssignExpr n, VisitorContext arg) {
+      n.getTarget().accept(this, arg);
 
-		if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-			n.setValue((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
-		}
+      n.getValue().accept(this, arg);
 
-	}
+      if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+         n.setValue((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+      }
 
-	public void visit(VariableDeclarator n, VisitorContext arg) {
-		n.getId().accept(this, arg);
+   }
 
-		if (n.getInit() != null) {
+   public void visit(VariableDeclarator n, VisitorContext arg) {
+      n.getId().accept(this, arg);
 
-			n.getInit().accept(this, arg);
+      if (n.getInit() != null) {
 
-			if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-				n.setInit((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
-			}
+         n.getInit().accept(this, arg);
 
-		}
-	}
+         if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+            n.setInit((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+         }
 
-	@Override
-	public void visit(BinaryExpr n, VisitorContext arg) {
+      }
+   }
 
-		Expression right = n.getRight();
-		right.accept(this, arg);
+   @Override
+   public void visit(MethodDeclaration n, VisitorContext arg) {
+      super.visit(n, arg);
 
-		if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+      MethodSymbolData msd = n.getSymbolData();
+      if (msd != null) {
+         if(refactoringVisitors != null){
+            VoidVisitor<?> visitor = refactoringVisitors.get(msd.getMethod());
+            if(visitor != null){
+               n.accept(visitor, null);
+            }
+         }
+      }
+   }
 
-			n.setRight((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+   public void setRefactoringVisitors(Map<Method, VoidVisitor<?>> refactoringVisitors) {
+      this.refactoringVisitors = refactoringVisitors;
+   }
 
-		}
+   @Override
+   public void visit(BinaryExpr n, VisitorContext arg) {
 
-		Expression left = n.getLeft();
-		left.accept(this, arg);
-		if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-			n.setLeft((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+      Expression right = n.getRight();
+      right.accept(this, arg);
 
-		}
+      if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
 
-	}
+         n.setRight((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
 
-	@Override
-	public void visit(UnaryExpr n, VisitorContext arg) {
-		Expression e = n.getExpr();
-		e.accept(this, arg);
+      }
 
-		if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+      Expression left = n.getLeft();
+      left.accept(this, arg);
+      if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+         n.setLeft((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
 
-			n.setExpr((Expression) arg.get(UPDATED_EXPRESSION_KEY));
+      }
 
-			arg.remove(UPDATED_EXPRESSION_KEY);
-		}
-	}
+   }
 
-	@Override
-	public void visit(MethodCallExpr n, VisitorContext arg) {
+   @Override
+   public void visit(UnaryExpr n, VisitorContext arg) {
+      Expression e = n.getExpr();
+      e.accept(this, arg);
 
-		MethodSymbolData resultType = n.getSymbolData();
+      if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
 
-		Class<?> scopeClass = resultType.getMethod().getDeclaringClass();
-		SymbolType scopeST = new SymbolType(scopeClass);
-		try {
+         n.setExpr((Expression) arg.get(UPDATED_EXPRESSION_KEY));
 
-			if (n.getScope() != null) {
+         arg.remove(UPDATED_EXPRESSION_KEY);
+      }
+   }
 
-				// resolving the scope
-				n.getScope().accept(this, arg);
+   @Override
+   public void visit(MethodCallExpr n, VisitorContext arg) {
 
-				// updating the scope if some refactor is applied
-				if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-					n.setScope((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
-				}
+      MethodSymbolData resultType = n.getSymbolData();
 
-			}
-			// searching the replacing method
-			List<Expression> args = n.getArgs();
+      Class<?> scopeClass = resultType.getMethod().getDeclaringClass();
+      SymbolType scopeST = new SymbolType(scopeClass);
+      try {
 
-			SymbolType[] argClazzes = null;
-			List<Expression> refactoredArgs = new LinkedList<Expression>();
+         if (n.getScope() != null) {
 
-			if (args != null) {
-				int i = 0;
-				argClazzes = new SymbolType[args.size()];
+            // resolving the scope
+            n.getScope().accept(this, arg);
 
-				// guardem els tipus dels parametres
-				for (Expression e : args) {
+            // updating the scope if some refactor is applied
+            if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+               n.setScope((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+            }
 
-					SymbolData aux = e.getSymbolData();
+         }
+         // searching the replacing method
+         List<Expression> args = n.getArgs();
 
-					if (aux != null) {
+         SymbolType[] argClazzes = null;
+         List<Expression> refactoredArgs = new LinkedList<Expression>();
 
-						argClazzes[i] = (SymbolType) aux;
-					} else {
-						// e is a nullLiteralExpr
-						argClazzes[i] = null;
-					}
-					// the systems applies the method refactoring in all its
-					// args once the type is known
-					e.accept(this, arg);
+         if (args != null) {
+            int i = 0;
+            argClazzes = new SymbolType[args.size()];
 
-					if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-						refactoredArgs.add((Expression) arg
-								.remove(UPDATED_EXPRESSION_KEY));
-					} else {
-						refactoredArgs.add(e);
-					}
-					i++;
+            // guardem els tipus dels parametres
+            for (Expression e : args) {
 
-				}
+               SymbolData aux = e.getSymbolData();
 
-				args = refactoredArgs;
-			}
-			else{
-				argClazzes = new SymbolType[0];
-			}
+               if (aux != null) {
 
-			MethodRefactoringRule mrr = refactoringRules.getRefactoringRule(
-					scopeST, n.getName(), argClazzes);
+                  argClazzes[i] = (SymbolType) aux;
+               } else {
+                  // e is a nullLiteralExpr
+                  argClazzes[i] = null;
+               }
+               // the systems applies the method refactoring in all its
+               // args once the type is known
+               e.accept(this, arg);
 
-			// does exists some refactoring rule?
-			if (mrr != null) {
+               if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+                  refactoredArgs.add((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+               } else {
+                  refactoredArgs.add(e);
+               }
+               i++;
 
-				LOG.debug("refactoring [ " + n.toString() + " ]");
-				// changing the method's name
-				n.setName(mrr.getMethodName());
+            }
 
-				Map<String, Expression> variableMap = new HashMap<String, Expression>();
-				Map<String, SymbolData> variableTypes = new HashMap<String, SymbolData>();
+            args = refactoredArgs;
+         } else {
+            argClazzes = new SymbolType[0];
+         }
 
-				exprRefactor.setVariable(variableMap);
-				exprRefactor.setVariableTypes(variableTypes);
+         MethodRefactoringRule mrr = refactoringRules.getRefactoringRule(scopeST, n.getName(), argClazzes);
 
-				// updating args
-				if (args != null && !args.isEmpty()) {
+         // does exists some refactoring rule?
+         if (mrr != null) {
 
-					List<Expression> argExpr = mrr.getExpressionTreeArgs();
+            LOG.debug("refactoring [ " + n.toString() + " ]");
+            // changing the method's name
+            n.setName(mrr.getMethodName());
 
-					Iterator<Expression> it = args.iterator();
-					int i = 0;
-					for (String variable : mrr.getVariables()) {
-						variableMap.put(variable, it.next());
-						variableTypes.put(variable, argClazzes[i]);
-						i++;
-					}
+            Map<String, Expression> variableMap = new HashMap<String, Expression>();
+            Map<String, SymbolData> variableTypes = new HashMap<String, SymbolData>();
 
-					variableMap.put(mrr.getImplicitVaribale(), n.getScope());
-					variableTypes.put(mrr.getImplicitVaribale(),scopeST);
+            exprRefactor.setVariable(variableMap);
+            exprRefactor.setVariableTypes(variableTypes);
 
-					List<Expression> argExprRefactored = new LinkedList<Expression>();
+            // updating args
+            if (args != null && !args.isEmpty()) {
 
-					for (Expression e : argExpr) {
+               List<Expression> argExpr = mrr.getExpressionTreeArgs();
 
-						// changing the argument expression once it its
-						// refactored
+               Iterator<Expression> it = args.iterator();
+               int i = 0;
+               for (String variable : mrr.getVariables()) {
+                  variableMap.put(variable, it.next());
+                  variableTypes.put(variable, argClazzes[i]);
+                  i++;
+               }
 
-						e.accept(exprRefactor, arg);
+               variableMap.put(mrr.getImplicitVaribale(), n.getScope());
+               variableTypes.put(mrr.getImplicitVaribale(), scopeST);
 
-						if (e.getData() != null) {
-							Expression aux = (Expression) e.getData();
-							argExprRefactored.add(aux);
+               List<Expression> argExprRefactored = new LinkedList<Expression>();
 
-						} else {
-							argExprRefactored.add(e);
-						}
+               for (Expression e : argExpr) {
 
-					}
+                  // changing the argument expression once it its
+                  // refactored
 
-					n.setArgs(argExprRefactored);
+                  e.accept(exprRefactor, arg);
 
-				}
+                  if (e.getData() != null) {
+                     Expression aux = (Expression) e.getData();
+                     argExprRefactored.add(aux);
 
-				if (mrr.hasImplicitExpression()) {
+                  } else {
+                     argExprRefactored.add(e);
+                  }
 
-					Expression implicitExpression = mrr
-							.getImplicitTreeExpression();
+               }
 
-					implicitExpression.accept(exprRefactor, arg);
+               n.setArgs(argExprRefactored);
 
-					if (implicitExpression.getData() != null) {
-						implicitExpression = (Expression) implicitExpression
-								.getData();
-					}
+            }
 
-					n.setScope(implicitExpression);
+            if (mrr.hasImplicitExpression()) {
 
-				}
-				Expression resultExpression = null;
+               Expression implicitExpression = mrr.getImplicitTreeExpression();
 
-				if (mrr.hasResultExpression()) {
+               implicitExpression.accept(exprRefactor, arg);
 
-					resultExpression = mrr.getResultTreeExpression();
+               if (implicitExpression.getData() != null) {
+                  implicitExpression = (Expression) implicitExpression.getData();
+               }
 
-					Map<String, Expression> map = exprRefactor.getVariable();
-					map.put(mrr.getResultVariable(), n);
-					exprRefactor.setVariable(map);
-					resultExpression.accept(exprRefactor, arg);
+               n.setScope(implicitExpression);
 
-					if (resultExpression.getData() != null) {
-						resultExpression = (Expression) resultExpression
-								.getData();
-					}
-					if (!exprRefactor.getRefactoredVariables().contains(
-							mrr.getResultVariable())) {
+            }
+            Expression resultExpression = null;
 
-						// it is necessary to apply the method refactor as
-						// an statement and the result expression
+            if (mrr.hasResultExpression()) {
 
-						@SuppressWarnings("unchecked")
-						Collection<Statement> reqStmts = (Collection<Statement>) arg
-								.get(PREVIOUS_REQUIRED_STATEMENTS_KEY);
+               resultExpression = mrr.getResultTreeExpression();
 
-						if (reqStmts == null) {
-							reqStmts = new LinkedList<Statement>();
-							arg.put(PREVIOUS_REQUIRED_STATEMENTS_KEY, reqStmts);
-						}
-						ExpressionStmt stmt = new ExpressionStmt(n);
-						reqStmts.add(stmt);
-					}
-					arg.put(UPDATED_EXPRESSION_KEY, resultExpression);
-				}
+               Map<String, Expression> map = exprRefactor.getVariable();
+               map.put(mrr.getResultVariable(), n);
+               exprRefactor.setVariable(map);
+               resultExpression.accept(exprRefactor, arg);
 
-			}
+               if (resultExpression.getData() != null) {
+                  resultExpression = (Expression) resultExpression.getData();
+               }
+               if (!exprRefactor.getRefactoredVariables().contains(mrr.getResultVariable())) {
 
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+                  // it is necessary to apply the method refactor as
+                  // an statement and the result expression
 
-	}
+                  @SuppressWarnings("unchecked")
+                  Collection<Statement> reqStmts = (Collection<Statement>) arg.get(PREVIOUS_REQUIRED_STATEMENTS_KEY);
 
-	@Override
-	public void visit(FieldAccessExpr n, VisitorContext arg) {
+                  if (reqStmts == null) {
+                     reqStmts = new LinkedList<Statement>();
+                     arg.put(PREVIOUS_REQUIRED_STATEMENTS_KEY, reqStmts);
+                  }
+                  ExpressionStmt stmt = new ExpressionStmt(n);
+                  reqStmts.add(stmt);
+               }
+               arg.put(UPDATED_EXPRESSION_KEY, resultExpression);
+            }
 
-		Expression scope = n.getScope();
+         }
 
-		if (scope != null) {
-			n.getScope().accept(this, arg);
-			if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-				n.setScope((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+      } catch (Exception e) {
+         throw new RuntimeException(e);
+      }
 
-			}
-		}
-	}
+   }
 
-	public void visit(SwitchEntryStmt n, VisitorContext arg) {
+   @Override
+   public void visit(FieldAccessExpr n, VisitorContext arg) {
 
-		if (n.getLabel() != null) {
-			n.getLabel().accept(this, arg);
-			if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-				n.setLabel((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
-			}
-		}
+      Expression scope = n.getScope();
 
-		if (n.getStmts() != null) {
+      if (scope != null) {
+         n.getScope().accept(this, arg);
+         if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+            n.setScope((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
 
-			List<Statement> stmts = new LinkedList<Statement>();
+         }
+      }
+   }
 
-			for (Statement s : n.getStmts()) {
+   public void visit(SwitchEntryStmt n, VisitorContext arg) {
 
-				s.accept(this, arg);
+      if (n.getLabel() != null) {
+         n.getLabel().accept(this, arg);
+         if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+            n.setLabel((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+         }
+      }
 
-				@SuppressWarnings("unchecked")
-				Collection<Statement> reqStmts = (Collection<Statement>) arg
-						.get(PREVIOUS_REQUIRED_STATEMENTS_KEY);
-				if (reqStmts != null) {
-					for (Statement ns : reqStmts) {
-						stmts.add(ns);
-					}
-					reqStmts.clear();
-				}
+      if (n.getStmts() != null) {
 
-				if (!arg.containsKey(UPDATED_STATEMENT_KEY)) {
-					// is not an empty statement
-					stmts.add(s);
-				} else {
-					if (arg.get(UPDATED_STATEMENT_KEY) != null) {
-						stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
-					} else {
-						
-						arg.remove(UPDATED_STATEMENT_KEY);
-					}
-				}
-
-				@SuppressWarnings("unchecked")
-				Collection<Statement> forStmts = (Collection<Statement>) arg
-						.remove(FORWARD_REQUIRED_STATEMENTS_KEY);
-				if (forStmts != null) {
-					for (Statement ns : forStmts) {
-						stmts.add(ns);
-					}
-					forStmts.clear();
-				}
-			}
-			n.setStmts(stmts);
-			if (stmts.isEmpty()) {
-				arg.put(UPDATED_STATEMENT_KEY, null);
-			}
-		}
-
-	}
-
-	public void setRefactoringConfigFile(String refactoringConfigFile)
-			throws Exception {
-		File file = new File(refactoringConfigFile);
-		if (!file.exists()) {
-			file = new File("src/main/walkmod/refactor/refactoring-methods.json");
-		}
-		if (file.exists()) {
-
-			if (file.canRead()) {
-
-				String text = new Scanner(file).useDelimiter("\\A").next();
-
-				JSONObject o = JSON.parseObject(text);
-
-				Map<String, String> aux = new HashMap<String, String>();
-
-				Set<Map.Entry<String, Object>> entries = o.entrySet();
-
-				Iterator<Map.Entry<String, Object>> it = entries.iterator();
-
-				while (it.hasNext()) {
-					Map.Entry<String, Object> entry = it.next();
-					aux.put(entry.getKey(), entry.getValue().toString());
-					it.remove();
-				}
-				setRefactoringRules(aux);
-			} else {
-				LOG.error("The refactoring config file ["
-						+ refactoringConfigFile + "] cannot be read");
-			}
-		} else {
-			LOG.error("The refactoring config file [" + refactoringConfigFile
-					+ "] does not exist");
-		}
-	}
-
-	public void setRefactoringRules(Map<String, String> inputRules)
-			throws InvalidTransformationRuleException {
-		this.inputRules = inputRules;
-
-	}
-
-	public Map<String, String> getRefactoringRules() {
-		return inputRules;
-	}
-
-	@Override
-	public void visit(BlockStmt n, VisitorContext arg) {
-
-		if (n.getStmts() != null) {
-			List<Statement> stmts = new LinkedList<Statement>();
-			for (Statement s : n.getStmts()) {
-
-				s.accept(this, arg);
-
-				@SuppressWarnings("unchecked")
-				Collection<Statement> reqStmts = (Collection<Statement>) arg
-						.get(PREVIOUS_REQUIRED_STATEMENTS_KEY);
-				if (reqStmts != null) {
-					for (Statement ns : reqStmts) {
-						stmts.add(ns);
-					}
-					reqStmts.clear();
-				}
-
-				if (!arg.containsKey(UPDATED_STATEMENT_KEY)) {
-					// is not an empty statement
-					stmts.add(s);
-				} else {
-					if (arg.get(UPDATED_STATEMENT_KEY) != null) {
-						stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
-					} else {
-						
-						arg.remove(UPDATED_STATEMENT_KEY);
-					}
-				}
-
-				@SuppressWarnings("unchecked")
-				Collection<Statement> forStmts = (Collection<Statement>) arg
-						.remove(FORWARD_REQUIRED_STATEMENTS_KEY);
-				if (forStmts != null) {
-					for (Statement ns : forStmts) {
-						stmts.add(ns);
-					}
-					forStmts.clear();
-				}
-			}
-			n.setStmts(stmts);
-			if (stmts.isEmpty()) {
-				arg.put(UPDATED_STATEMENT_KEY, null);
-			}
-		}
-
-	}
-
-	@Override
-	public void visit(IfStmt n, VisitorContext arg) {
-		n.getCondition().accept(this, arg);
-
-		if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-			n.setCondition((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
-		}
-
-		n.getThenStmt().accept(this, arg);
-
-		if (arg.containsKey(UPDATED_STATEMENT_KEY)
-				&& arg.get(UPDATED_STATEMENT_KEY) == null) {
-			// when empty then statement is setted because a method is removed
-
-			UnaryExpr notExpr = new UnaryExpr(n.getCondition(),
-					UnaryExpr.Operator.not);
-			n.setCondition(notExpr);
-			n.setThenStmt(n.getElseStmt());
-			n.setElseStmt(null);
-
-			if (n.getThenStmt() != null) {
-				n.getThenStmt().accept(this, arg);
-			} else {
-				arg.put(UPDATED_STATEMENT_KEY, null);
-			}
-
-		} else {
-			if (n.getElseStmt() != null) {
-				n.getElseStmt().accept(this, arg);
-			}
-		}
-	}
-
-	@Override
-	public void visit(ObjectCreationExpr n, VisitorContext arg) {
+         List<Statement> stmts = new LinkedList<Statement>();
 
-		SymbolData objectScope = n.getSymbolData();
+         for (Statement s : n.getStmts()) {
 
-		if (n.getTypeArgs() != null) {
-			for (Type t : n.getTypeArgs()) {
-				t.accept(this, arg);
-			}
-		}
-		n.getType().accept(this, arg);
-
-		SymbolType[] argStr = null;
-
-		List<Expression> args = n.getArgs();
-		List<Expression> refactoredArgs = new LinkedList<Expression>();
-		if (args != null) {
-
-			argStr = new SymbolType[n.getArgs().size()];
-			int i = 0;
-			for (Expression e : args) {
-
-				SymbolData eType = e.getSymbolData();
+            s.accept(this, arg);
 
-				if (eType != null) {
-					argStr[i] = (SymbolType)eType;
-				} else {
-					// null literal expression
-					argStr[i] = null;
-				}
+            @SuppressWarnings("unchecked")
+            Collection<Statement> reqStmts = (Collection<Statement>) arg.get(PREVIOUS_REQUIRED_STATEMENTS_KEY);
+            if (reqStmts != null) {
+               for (Statement ns : reqStmts) {
+                  stmts.add(ns);
+               }
+               reqStmts.clear();
+            }
 
-				// Transforming the expression
-				e.accept(this, arg);
-				if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-					refactoredArgs.add((Expression) arg
-							.remove(UPDATED_EXPRESSION_KEY));
-				} else {
-					refactoredArgs.add(e);
-				}
-
-				i++;
-			}
-
-			n.setArgs(refactoredArgs);
-		}
-		try {
-			MethodRefactoringRule mrr = refactoringRules.getRefactoringRule(
-					(SymbolType)objectScope, n.getType().getName(), argStr);
-
-			if (mrr != null) {
-				LOG.debug("refactoring [" + n.toString() + "]");
-				// changing the constructor's name
-				String newConstructorName = mrr.getMethodName();
-				if (mrr.getScope() != null) {
-					newConstructorName = mrr.getScope() + "."
-							+ newConstructorName;
-				}
-
-				Map<String, Expression> variableMap = new HashMap<String, Expression>();
-
-				exprRefactor.setVariable(variableMap);
-
-				// actualizamos los args
-				if (args != null && !args.isEmpty()) {
-
-					List<Expression> argExpr = mrr.getExpressionTreeArgs();
-
-					Iterator<Expression> it = args.iterator();
-
-					for (String variable : mrr.getVariables()) {
-						variableMap.put(variable, it.next());
-					}
-
-					variableMap.put(mrr.getImplicitVaribale(), n.getScope());
-
-					List<Expression> argExprRefactored = new LinkedList<Expression>();
-
-					for (Expression e : argExpr) {
-
-						// replacing the argument expression
-						e.accept(exprRefactor, arg);
-
-						if (e.getData() != null) {
-							argExprRefactored.add((Expression) e.getData());
-
-						} else {
-							argExprRefactored.add(e);
-						}
-
-					}
-
-					n.setArgs(argExprRefactored);
-
-				}
-
-				if (mrr.hasImplicitExpression()) {
-
-					Expression implicitExpression = mrr
-							.getImplicitTreeExpression();
-
-					implicitExpression.accept(exprRefactor, arg);
-
-					if (implicitExpression.getData() != null) {
-						implicitExpression = (Expression) implicitExpression
-								.getData();
-					}
-
-					MethodCallExpr aux = new MethodCallExpr();
-					aux.setScope(implicitExpression);
-					aux.setTypeArgs(n.getTypeArgs());
-					aux.setName(mrr.getMethodName());
-					aux.setArgs(n.getArgs());
-					arg.put(UPDATED_EXPRESSION_KEY, aux);
-
-				}
-
-				n.getType().setName(newConstructorName);
-			}
-
-		} catch (Exception e) {
-			throw new WalkModException(e);
-		}
-
-		super.visit(n, arg);
-	}
-
-	@Override
-	public void visit(ExpressionStmt n, VisitorContext arg) {
-
-		n.getExpression().accept(this, arg);
-		
-		if (arg.containsKey(UPDATED_EXPRESSION_KEY)
-				&& arg.get(UPDATED_EXPRESSION_KEY) == null) {
-			
-			arg.put(UPDATED_STATEMENT_KEY, null);
-			arg.remove(UPDATED_EXPRESSION_KEY);
-
-		} else {
-			if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
-				n.setExpression((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
-			}
-		}
-
-	}
+            if (!arg.containsKey(UPDATED_STATEMENT_KEY)) {
+               // is not an empty statement
+               stmts.add(s);
+            } else {
+               if (arg.get(UPDATED_STATEMENT_KEY) != null) {
+                  stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
+               } else {
+
+                  arg.remove(UPDATED_STATEMENT_KEY);
+               }
+            }
+
+            @SuppressWarnings("unchecked")
+            Collection<Statement> forStmts = (Collection<Statement>) arg.remove(FORWARD_REQUIRED_STATEMENTS_KEY);
+            if (forStmts != null) {
+               for (Statement ns : forStmts) {
+                  stmts.add(ns);
+               }
+               forStmts.clear();
+            }
+         }
+         n.setStmts(stmts);
+         if (stmts.isEmpty()) {
+            arg.put(UPDATED_STATEMENT_KEY, null);
+         }
+      }
+
+   }
+
+   public void setRefactoringConfigFile(String refactoringConfigFile) throws Exception {
+      File file = new File(refactoringConfigFile);
+      if (!file.exists()) {
+         file = new File("src/main/walkmod/refactor/refactoring-methods.json");
+      }
+      if (file.exists()) {
+
+         if (file.canRead()) {
+
+            String text = new Scanner(file).useDelimiter("\\A").next();
+
+            JSONObject o = JSON.parseObject(text);
+
+            Map<String, String> aux = new HashMap<String, String>();
+
+            Set<Map.Entry<String, Object>> entries = o.entrySet();
+
+            Iterator<Map.Entry<String, Object>> it = entries.iterator();
+
+            while (it.hasNext()) {
+               Map.Entry<String, Object> entry = it.next();
+               aux.put(entry.getKey(), entry.getValue().toString());
+               it.remove();
+            }
+            setRefactoringRules(aux);
+         } else {
+            LOG.error("The refactoring config file [" + refactoringConfigFile + "] cannot be read");
+         }
+      } else {
+         LOG.error("The refactoring config file [" + refactoringConfigFile + "] does not exist");
+      }
+   }
+
+   public void setRefactoringRules(Map<String, String> inputRules) throws InvalidTransformationRuleException {
+      this.inputRules = inputRules;
+
+   }
+
+   public Map<String, String> getRefactoringRules() {
+      return inputRules;
+   }
+
+   @Override
+   public void visit(BlockStmt n, VisitorContext arg) {
+
+      if (n.getStmts() != null) {
+         List<Statement> stmts = new LinkedList<Statement>();
+         for (Statement s : n.getStmts()) {
+
+            s.accept(this, arg);
+
+            @SuppressWarnings("unchecked")
+            Collection<Statement> reqStmts = (Collection<Statement>) arg.get(PREVIOUS_REQUIRED_STATEMENTS_KEY);
+            if (reqStmts != null) {
+               for (Statement ns : reqStmts) {
+                  stmts.add(ns);
+               }
+               reqStmts.clear();
+            }
+
+            if (!arg.containsKey(UPDATED_STATEMENT_KEY)) {
+               // is not an empty statement
+               stmts.add(s);
+            } else {
+               if (arg.get(UPDATED_STATEMENT_KEY) != null) {
+                  stmts.add((Statement) arg.remove(UPDATED_STATEMENT_KEY));
+               } else {
+
+                  arg.remove(UPDATED_STATEMENT_KEY);
+               }
+            }
+
+            @SuppressWarnings("unchecked")
+            Collection<Statement> forStmts = (Collection<Statement>) arg.remove(FORWARD_REQUIRED_STATEMENTS_KEY);
+            if (forStmts != null) {
+               for (Statement ns : forStmts) {
+                  stmts.add(ns);
+               }
+               forStmts.clear();
+            }
+         }
+         n.setStmts(stmts);
+         if (stmts.isEmpty()) {
+            arg.put(UPDATED_STATEMENT_KEY, null);
+         }
+      }
+
+   }
+
+   @Override
+   public void visit(IfStmt n, VisitorContext arg) {
+      n.getCondition().accept(this, arg);
+
+      if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+         n.setCondition((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+      }
+
+      n.getThenStmt().accept(this, arg);
+
+      if (arg.containsKey(UPDATED_STATEMENT_KEY) && arg.get(UPDATED_STATEMENT_KEY) == null) {
+         // when empty then statement is setted because a method is removed
+
+         UnaryExpr notExpr = new UnaryExpr(n.getCondition(), UnaryExpr.Operator.not);
+         n.setCondition(notExpr);
+         n.setThenStmt(n.getElseStmt());
+         n.setElseStmt(null);
+
+         if (n.getThenStmt() != null) {
+            n.getThenStmt().accept(this, arg);
+         } else {
+            arg.put(UPDATED_STATEMENT_KEY, null);
+         }
+
+      } else {
+         if (n.getElseStmt() != null) {
+            n.getElseStmt().accept(this, arg);
+         }
+      }
+   }
+
+   @Override
+   public void visit(ObjectCreationExpr n, VisitorContext arg) {
+
+      SymbolData objectScope = n.getSymbolData();
+
+      if (n.getTypeArgs() != null) {
+         for (Type t : n.getTypeArgs()) {
+            t.accept(this, arg);
+         }
+      }
+      n.getType().accept(this, arg);
+
+      SymbolType[] argStr = null;
+
+      List<Expression> args = n.getArgs();
+      List<Expression> refactoredArgs = new LinkedList<Expression>();
+      if (args != null) {
+
+         argStr = new SymbolType[n.getArgs().size()];
+         int i = 0;
+         for (Expression e : args) {
+
+            SymbolData eType = e.getSymbolData();
+
+            if (eType != null) {
+               argStr[i] = (SymbolType) eType;
+            } else {
+               // null literal expression
+               argStr[i] = null;
+            }
+
+            // Transforming the expression
+            e.accept(this, arg);
+            if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+               refactoredArgs.add((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+            } else {
+               refactoredArgs.add(e);
+            }
+
+            i++;
+         }
+
+         n.setArgs(refactoredArgs);
+      }
+      try {
+         MethodRefactoringRule mrr = refactoringRules.getRefactoringRule((SymbolType) objectScope,
+               n.getType().getName(), argStr);
+
+         if (mrr != null) {
+            LOG.debug("refactoring [" + n.toString() + "]");
+            // changing the constructor's name
+            String newConstructorName = mrr.getMethodName();
+            if (mrr.getScope() != null) {
+               newConstructorName = mrr.getScope() + "." + newConstructorName;
+            }
+
+            Map<String, Expression> variableMap = new HashMap<String, Expression>();
+
+            exprRefactor.setVariable(variableMap);
+
+            // actualizamos los args
+            if (args != null && !args.isEmpty()) {
+
+               List<Expression> argExpr = mrr.getExpressionTreeArgs();
+
+               Iterator<Expression> it = args.iterator();
+
+               for (String variable : mrr.getVariables()) {
+                  variableMap.put(variable, it.next());
+               }
+
+               variableMap.put(mrr.getImplicitVaribale(), n.getScope());
+
+               List<Expression> argExprRefactored = new LinkedList<Expression>();
+
+               for (Expression e : argExpr) {
+
+                  // replacing the argument expression
+                  e.accept(exprRefactor, arg);
+
+                  if (e.getData() != null) {
+                     argExprRefactored.add((Expression) e.getData());
+
+                  } else {
+                     argExprRefactored.add(e);
+                  }
+
+               }
+
+               n.setArgs(argExprRefactored);
+
+            }
+
+            if (mrr.hasImplicitExpression()) {
+
+               Expression implicitExpression = mrr.getImplicitTreeExpression();
+
+               implicitExpression.accept(exprRefactor, arg);
+
+               if (implicitExpression.getData() != null) {
+                  implicitExpression = (Expression) implicitExpression.getData();
+               }
+
+               MethodCallExpr aux = new MethodCallExpr();
+               aux.setScope(implicitExpression);
+               aux.setTypeArgs(n.getTypeArgs());
+               aux.setName(mrr.getMethodName());
+               aux.setArgs(n.getArgs());
+               arg.put(UPDATED_EXPRESSION_KEY, aux);
+
+            }
+
+            n.getType().setName(newConstructorName);
+         }
+
+      } catch (Exception e) {
+         throw new WalkModException(e);
+      }
+
+      super.visit(n, arg);
+   }
+
+   @Override
+   public void visit(ExpressionStmt n, VisitorContext arg) {
+
+      n.getExpression().accept(this, arg);
+
+      if (arg.containsKey(UPDATED_EXPRESSION_KEY) && arg.get(UPDATED_EXPRESSION_KEY) == null) {
+
+         arg.put(UPDATED_STATEMENT_KEY, null);
+         arg.remove(UPDATED_EXPRESSION_KEY);
+
+      } else {
+         if (arg.containsKey(UPDATED_EXPRESSION_KEY)) {
+            n.setExpression((Expression) arg.remove(UPDATED_EXPRESSION_KEY));
+         }
+      }
+
+   }
 
 }
