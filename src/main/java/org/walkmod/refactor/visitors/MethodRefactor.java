@@ -80,6 +80,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
    private ClassLoader classLoader = null;
 
    private Map<Method, VoidVisitor<?>> refactoringVisitors;
+   
+   private Map<String, VoidVisitor<?>> auxRefactoringVisitors;
 
    private boolean setUp = false;
 
@@ -95,9 +97,17 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
       if (!setUp) {
 
          this.refactoringRules = new RefactoringRulesDictionary(classLoader);
+         auxRefactoringVisitors = new HashMap<String, VoidVisitor<?>>();
          exprRefactor = new ExpressionRefactor();
 
          refactoringRules.putRules(inputRules);
+         
+         if(refactoringVisitors != null){
+            Set<Method> keys = refactoringVisitors.keySet();
+            for(Method m: keys){
+               auxRefactoringVisitors.put(m.toString(), refactoringVisitors.get(m));
+            }
+         }
          setUp = true;
       }
 
@@ -137,7 +147,8 @@ public class MethodRefactor extends VoidVisitorAdapter<VisitorContext> {
       MethodSymbolData msd = n.getSymbolData();
       if (msd != null) {
          if(refactoringVisitors != null){
-            VoidVisitor<?> visitor = refactoringVisitors.get(msd.getMethod());
+            
+            VoidVisitor<?> visitor = auxRefactoringVisitors.get(msd.getMethod().toString());
             if(visitor != null){
                n.accept(visitor, null);
             }
